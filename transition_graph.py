@@ -162,6 +162,8 @@ def main():
 
     transition_graph = nx.DiGraph()
     transition_nodes = []
+    transition_graph = nx.DiGraph()
+
     for load in load_list:
 
         cycle_path = []
@@ -176,24 +178,28 @@ def main():
         print(cycle_path)
         transition_cycle = []
         transition_cycle = []
-        transition_graph = nx.DiGraph()
-        is_loaded = False
+
 
         p_loc = None
+        is_loaded = False
+        loaded_loc = None
         for idx, loc in enumerate(cycle_path):
+
 
             if loc.loc_type == LocationType.WST_DUMP or loc.loc_type == LocationType.CRUSHER:
                 transition_cycle.append(loc)
 
             if loc.loc_type == LocationType.WST_LOAD or loc.loc_type == LocationType.ORE_LOAD:
                 is_loaded = True
+                loaded_loc = loc
                 transition_cycle.append(loc)
 
             if loc.loc_type == LocationType.INTSCT:
                 if is_loaded:
-                    new_loc = Location(loc.name + '_L', loc.pos[0], loc.pos[1], LocationType.INTSCT, 0)
+                    new_loc = Location(loc.name + '_L_' + str(loaded_loc), loc.pos[0], loc.pos[1], LocationType.INTSCT, 0)
                 else:
                     new_loc = Location(loc.name + '_E', loc.pos[0], loc.pos[1], LocationType.INTSCT, 0)
+
                 transition_cycle.append(new_loc)
 
         for idx, loc in enumerate(transition_cycle):
@@ -205,9 +211,22 @@ def main():
 
             transition_graph.add_edge(p_loc, loc)
 
-        print(transition_cycle)
-        nx.draw_networkx(transition_graph)
-        plt.show()
+
+    del_locs = []
+    for loc in transition_graph.nodes:
+        print(loc, id(loc))
+        if loc.name == 'D_E':
+            del_locs.append(loc)
+
+    del_arc = list(transition_graph.out_edges(del_locs[0]))[0]
+    print(del_arc)
+    transition_graph.remove_node(del_locs[0])
+    transition_graph.add_edge(del_locs[1], del_arc[1])
+
+
+    #Q transition_graph.remove_node(del_loc)
+    nx.draw_networkx(transition_graph)
+    plt.show()
 
     #     for idx, loc in enumerate(cycle_path):
 
