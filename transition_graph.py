@@ -3,7 +3,6 @@ from enum import Enum, auto
 import networkx as nx
 from matplotlib import pyplot as plt
 import matplotlib
-
 matplotlib.use('TkAgg')
 
 class LocationType(Enum):
@@ -24,145 +23,38 @@ class TransitionNode:
         self.loc_name = loc_name
         self.state_name = state_name
         self.star = star
-
+        
     def __str__(self):
         return self.name
-
+    
     def __repr__(self):
         return self.__str__()
-
-
+    
+    
 def main():
-
+    
     input_type = sys.argv[1]
-
-    # Create a networkx graph object
-    road_network = nx.DiGraph()
-
-    if input_type == '1':
-        data = {
-            'A': (0, 0, LocationType.CRUSHER, 90),
-            'B': (1.73, 1, LocationType.ORE_LOAD, 120),
-            'C': (1.73, -1, LocationType.ORE_LOAD, 120),
-            'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
-        }
-    elif input_type == '2':
-        data = {
-            'A': (0, 0, LocationType.CRUSHER, 90),
-            'B': (1.73, 1, LocationType.ORE_LOAD, 120),
-            'C': (1.73, -1, LocationType.ORE_LOAD, 120),
-            'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
-            'E': (2., 0, LocationType.INTSCT, 0),
-        }
-    elif input_type == '3':
-        data = {
-            'A': (0.0, 0, LocationType.CRUSHER, 90),
-            'B': (3.0, 1, LocationType.ORE_LOAD, 120),
-            'C': (3.0, -1, LocationType.ORE_LOAD, 120),
-            'D': (1.5, 0, LocationType.INTSCT, 0),
-            'E': (2.5, 0, LocationType.INTSCT, 0),
-            'F': (2.0, 1, LocationType.INTSCT, 0),
-        }
-
-    loc_dict = {}
-    for name, attr in data.items():
-        # name, x, y, loc_type, activity_time, loaded, star, loc_name):
-        loc = TransitionNode(name, attr[0], attr[1], attr[2], attr[3], name, None)
-        loc_dict[name] = loc
-
-    # Add edges to to the graph object
-    # Each tuple represents an edge between two nodes
-    if input_type == '1':
-        road_network.add_edges_from([
-            (loc_dict['A'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['A']),
-            (loc_dict['B'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['B']),
-            (loc_dict['C'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['C']),
-        ])
-    elif input_type == '2':
-        road_network.add_edges_from([
-            (loc_dict['A'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['A']),
-            (loc_dict['D'], loc_dict['E']),
-            (loc_dict['E'], loc_dict['D']),
-            (loc_dict['B'], loc_dict['E']),
-            (loc_dict['E'], loc_dict['B']),
-            (loc_dict['C'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['C']),
-        ])
-    elif input_type == '3':
-        road_network.add_edges_from([
-            (loc_dict['A'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['A']),
-            (loc_dict['E'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['E']),
-            (loc_dict['F'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['F']),
-            (loc_dict['B'], loc_dict['E']),
-            (loc_dict['E'], loc_dict['B']),
-            (loc_dict['F'], loc_dict['B']),
-            (loc_dict['C'], loc_dict['D']),
-            (loc_dict['D'], loc_dict['C']),
-        ])
-
-    for edge in road_network.edges:
-        road_network.edges[edge]["EMPTY_TRAVEL_TIME"] = 40
-        road_network.edges[edge]["LOADED_TRAVEL_TIME"] = 60
-
-    pos = {}
-    for name in loc_dict.keys():
-        pos[loc_dict[name]] = (loc_dict[name].pos[0], loc_dict[name].pos[1])
-
-    dump_list = [loc for loc in road_network.nodes if
-                 loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
-    load_list = [loc for loc in road_network.nodes if
-                 loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
-    int_list = [loc for loc in road_network.nodes if loc.loc_type == LocationType.INTSCT]
-
+    road_network = init_road_network(input_type)
 
     # Transition graph
-    # NOTE: start from the sortest paths version for the simplicity.
     transition_graph = nx.DiGraph()
 
-    # search cycles
-    dump_list = [loc for loc in road_network.nodes if
-                 loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
-    load_list = [loc for loc in road_network.nodes if
-                 loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
+    dump_list = get_dump_list(road_network)
+    load_list = get_load_list(road_network)
+    int_list = get_intersection_list(road_network)
 
     # search for cycles from dumping point to loading point
     cycle_path_list = []
     for dump in dump_list:
         for load in load_list:
-
-            # print(list(nx.all_simple_paths(road_network, dump, load)))
-            # exit()
-
-
-            # find outward and return trip. there can be several trips.
-            # outward_paths = find_trip(dump, load, road_network, paths_type='shortest', weight='EMPTY_TRAVEL_TIME')
-            # return_paths = find_trip(load, dump, road_network, paths_type='shortest',  weight='LOAD_TRAVEL_TIME')
-            outward_paths = find_trip(dump, load, road_network, paths_type='all_simple')
-            return_paths = find_trip(load, dump, road_network, paths_type='all_simple')
-
-            for outward_path in outward_paths:
-                cycle_path: list[TransitionNode] = []
-                for return_path in return_paths:
-
-                    # concat the outward and return trip. remove the end of the path because we will add the return trip
-                    cycle_path.extend(outward_path[:-1])
-                    cycle_path.extend(return_path)
-                    print(f'{cycle_path=}')
-                    cycle_path_list.append(cycle_path)
-
-            print(f'{cycle_path_list=}')
+            
+            cycle_path_list = get_cycle_path_list(cycle_path_list, dump, load, road_network)
 
         for cycle_path in cycle_path_list:
+
             # a cycle in a transition graph
             transition_cycle = []
-
+            
             p_loc = None
             is_loaded = False
             loaded_loc = None
@@ -230,19 +122,10 @@ def main():
                 transition_graph.add_edge(p_loc, loc)
 
     # Find nodes which have the same names
-    del_locs = []
-    visited_id = []
-    for loc1 in transition_graph.nodes:
-        visited_id.append(id(loc1))
-        for loc2 in transition_graph.nodes:
-            if id(loc2) in visited_id:
-                continue
-
-            if id(loc1) != id(loc2) and loc1.name == loc2.name:
-                del_locs.append(loc1)
+    dupricated_locs = find_dupuricated_locs(transition_graph)
 
     # Delete and reconnect nodes
-    for loc in del_locs:
+    for loc in dupricated_locs:
 
         # find duplicated nodes witch have the same name in a graph
         loc_same_names = []
@@ -272,6 +155,10 @@ def main():
 
     # Draw the resulting
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    pos = {}
+    for loc in road_network.nodes:
+        pos[loc] = loc.pos
 
     nx.draw_networkx_nodes(road_network,
                            pos=pos,
@@ -325,6 +212,124 @@ def main():
                            ax=axes[1])
     plt.axis('equal')
     plt.show()
+
+
+def get_cycle_path_list(cycle_path_list, dump, load, road_network):
+    outward_paths = find_trip(dump, load, road_network, paths_type='all_simple')
+    return_paths = find_trip(load, dump, road_network, paths_type='all_simple')
+    for outward_path in outward_paths:
+        cycle_path: list[TransitionNode] = []
+        for return_path in return_paths:
+            # concat the outward and return trip. remove the end of the path because we will add the return trip
+            cycle_path.extend(outward_path[:-1])
+            cycle_path.extend(return_path)
+            cycle_path_list.append(cycle_path)
+            # print(f'{cycle_path=}')
+    # print(f'{cycle_path_list=}')
+
+    return cycle_path_list
+
+
+def find_dupuricated_locs(transition_graph):
+    dupricated_locs = []
+    visited_id = []
+    for loc1 in transition_graph.nodes:
+        visited_id.append(id(loc1))
+        for loc2 in transition_graph.nodes:
+            if id(loc2) in visited_id:
+                continue
+
+            if id(loc1) != id(loc2) and loc1.name == loc2.name:
+                dupricated_locs.append(loc1)
+    return dupricated_locs
+
+
+def get_intersection_list(road_network):
+    int_list = [loc for loc in road_network.nodes if loc.loc_type == LocationType.INTSCT]
+    return int_list
+
+
+def get_load_list(road_network):
+    load_list = [loc for loc in road_network.nodes if
+                 loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
+    return load_list
+
+
+def get_dump_list(road_network):
+    dump_list = [loc for loc in road_network.nodes if
+                 loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
+    return dump_list
+
+
+def init_road_network(input_type):
+    if input_type == '1':
+        data = {
+            'A': (0, 0, LocationType.CRUSHER, 90),
+            'B': (1.73, 1, LocationType.ORE_LOAD, 120),
+            'C': (1.73, -1, LocationType.ORE_LOAD, 120),
+            'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
+        }
+    elif input_type == '2':
+        data = {
+            'A': (0, 0, LocationType.CRUSHER, 90),
+            'B': (1.73, 1, LocationType.ORE_LOAD, 120),
+            'C': (1.73, -1, LocationType.ORE_LOAD, 120),
+            'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
+            'E': (2., 0, LocationType.INTSCT, 0),
+        }
+    elif input_type == '3':
+        data = {
+            'A': (0.0, 0, LocationType.CRUSHER, 90),
+            'B': (3.0, 1, LocationType.ORE_LOAD, 120),
+            'C': (3.0, -1, LocationType.ORE_LOAD, 120),
+            'D': (1.5, 0, LocationType.INTSCT, 0),
+            'E': (2.5, 0, LocationType.INTSCT, 0),
+            'F': (2.0, 1, LocationType.INTSCT, 0),
+        }
+    loc_dict = {}
+    for name, attr in data.items():
+        loc = TransitionNode(name, attr[0], attr[1], attr[2], attr[3], name, None)
+        loc_dict[name] = loc
+    # Create a networkx graph object
+    road_network = nx.DiGraph()
+    if input_type == '1':
+        road_network.add_edges_from([
+            (loc_dict['A'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['A']),
+            (loc_dict['B'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['B']),
+            (loc_dict['C'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['C']),
+        ])
+    elif input_type == '2':
+        road_network.add_edges_from([
+            (loc_dict['A'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['A']),
+            (loc_dict['D'], loc_dict['E']),
+            (loc_dict['E'], loc_dict['D']),
+            (loc_dict['B'], loc_dict['E']),
+            (loc_dict['E'], loc_dict['B']),
+            (loc_dict['C'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['C']),
+        ])
+    elif input_type == '3':
+        road_network.add_edges_from([
+            (loc_dict['A'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['A']),
+            (loc_dict['E'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['E']),
+            (loc_dict['F'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['F']),
+            (loc_dict['B'], loc_dict['E']),
+            (loc_dict['E'], loc_dict['B']),
+            (loc_dict['F'], loc_dict['B']),
+            (loc_dict['C'], loc_dict['D']),
+            (loc_dict['D'], loc_dict['C']),
+        ])
+    for edge in road_network.edges:
+        road_network.edges[edge]["EMPTY_TRAVEL_TIME"] = 40
+        road_network.edges[edge]["LOADED_TRAVEL_TIME"] = 60
+    return road_network
 
 
 def find_trip(dump, load, road_network, paths_type='shortest', weight=None):
