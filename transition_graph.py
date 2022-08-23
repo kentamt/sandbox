@@ -137,15 +137,15 @@ def main():
     for dump in dump_list:
         for load in load_list:
 
-            print(list(nx.all_simple_paths(road_network, dump, load)))
+            # print(list(nx.all_simple_paths(road_network, dump, load)))
             # exit()
 
 
             # find outward and return trip. there can be several trips.
-            outward_paths = find_trip(dump, load, road_network, paths_type='shortest', weight='EMPTY_TRAVEL_TIME')
-            return_paths = find_trip(load, dump, road_network, paths_type='shortest',  weight='LOAD_TRAVEL_TIME')
-            # outward_paths = find_trip(dump, load, road_network, paths_type='all_simple')
-            # return_paths = find_trip(load, dump, road_network, paths_type='all_simple')
+            # outward_paths = find_trip(dump, load, road_network, paths_type='shortest', weight='EMPTY_TRAVEL_TIME')
+            # return_paths = find_trip(load, dump, road_network, paths_type='shortest',  weight='LOAD_TRAVEL_TIME')
+            outward_paths = find_trip(dump, load, road_network, paths_type='all_simple')
+            return_paths = find_trip(load, dump, road_network, paths_type='all_simple')
 
             for outward_path in outward_paths:
                 cycle_path: list[TransitionNode] = []
@@ -174,17 +174,17 @@ def main():
                     if is_loaded:
                         # name, x, y, loc_type, activity_time, loaded, star, loc_name):
                         state = "LOADED_" + loaded_loc.loc_name
-                        new_loc = TransitionNode(loc.name + '_L_' + str(loaded_loc), loc.pos[0], loc.pos[1], loc.loc_type,
+                        new_loc = TransitionNode(loc.name + '_LOAD_' + str(loaded_loc), loc.pos[0], loc.pos[1], loc.loc_type,
                                                  loc.activity_time, loc.name, state)
                         transition_cycle.append(new_loc)
 
                         state = "EMPTY_S_" + loaded_loc.loc_name
-                        new_loc = TransitionNode(loc.name + '_E_S_' + str(loaded_loc), loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                        new_loc = TransitionNode(loc.name + '_EMPTY_S_' + str(loaded_loc), loc.pos[0], loc.pos[1], LocationType.INTSCT,
                                                  loc.activity_time, loc.name, state, star=True)
                         transition_cycle.append(new_loc)
                     else:
                         state = "EMPTY"
-                        new_loc = TransitionNode(loc.name + '_E', loc.pos[0], loc.pos[1], loc.loc_type,
+                        new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], loc.loc_type,
                                                  loc.activity_time, loc.name, state)
                         transition_cycle.append(new_loc)
 
@@ -193,17 +193,17 @@ def main():
                     is_loaded = True
                     loaded_loc = loc
                     state = "EMPTY"
-                    new_loc = TransitionNode(loc.name + '_E', loc.pos[0], loc.pos[1], loc.loc_type,
+                    new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], loc.loc_type,
                                              loc.activity_time, loc.name, state)
                     transition_cycle.append(new_loc)
 
                     state = 'LOADED_S_' + loaded_loc.loc_name
-                    new_loc = TransitionNode(loc.name + '_L_S_' + loaded_loc.name, loc.pos[0], loc.pos[1], loc.loc_type,
+                    new_loc = TransitionNode(loc.name + '_LOAD_S_' + loaded_loc.name, loc.pos[0], loc.pos[1], loc.loc_type,
                                              loc.activity_time, loc.name, state, star=True)
                     transition_cycle.append(new_loc)
 
                     state = 'LOADED_' + loaded_loc.loc_name
-                    new_loc = TransitionNode(loc.name + '_L_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], loc.loc_type,
+                    new_loc = TransitionNode(loc.name + '_LOAD_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], loc.loc_type,
                                              loc.activity_time, loc.name, state)
                     transition_cycle.append(new_loc)
 
@@ -211,11 +211,11 @@ def main():
                 if loc.loc_type == LocationType.INTSCT:
                     if is_loaded:
                         state = 'LOADED_' + loaded_loc.loc_name
-                        new_loc = TransitionNode(loc.name + '_L_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                        new_loc = TransitionNode(loc.name + '_LOAD_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], LocationType.INTSCT,
                                                  loc.activity_time, loc.name, state)
                     else:
                         state = 'EMPTY'
-                        new_loc = TransitionNode(loc.name + '_E', loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                        new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], LocationType.INTSCT,
                                                  loc.activity_time, loc.name, state)
                     transition_cycle.append(new_loc)
 
@@ -253,19 +253,22 @@ def main():
         # delete the target node and reconnect to the duplicated node.
         for loc_same_name in loc_same_names:
 
-            # find in-edges and reconnect
-            in_arc  = list(transition_graph.in_edges(loc))[0]
-            loc_from = in_arc[0]
-            loc_to   = loc_same_name
-            transition_graph.add_edge(loc_from, loc_to)
+            # find in-edges and reconnect all
+            in_arcs  = list(transition_graph.in_edges(loc_same_name))
+            for in_arc in in_arcs:
+                loc_from = in_arc[0]
+                loc_to   = loc
+                transition_graph.add_edge(loc_from, loc_to)
 
-            # find in-edges and reconnect
-            out_arc = list(transition_graph.out_edges(loc))[0]
-            loc_to = out_arc[1]
-            loc_from = loc_same_name
-            transition_graph.add_edge(loc_from, loc_to)
+            # find in-edges and reconnect all
+            out_arcs = list(transition_graph.out_edges(loc_same_name))
+            for out_arc in out_arcs:
+                loc_to = out_arc[1]
+                loc_from = loc
+                transition_graph.add_edge(loc_from, loc_to)
 
-            transition_graph.remove_node(loc)
+            print(f'remove {loc_same_name}')
+            transition_graph.remove_node(loc_same_name)
 
     # Draw the resulting
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -308,7 +311,7 @@ def main():
     nx.draw_networkx_nodes(transition_graph,
                            pos=transition_pos,
                            node_color='royalblue',
-                           node_size=500,
+                           node_size=200,
                            ax=axes[1])
     nx.draw_networkx_edges(transition_graph,
                            pos=transition_pos,
