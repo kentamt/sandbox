@@ -17,10 +17,15 @@ class LocationType(Enum):
 
 
 class Location:
-    def __init__(self, name: str, x: float, y: float, loc_type: LocationType, activity_time):
+    def __init__(self, name: str, x: float, y: float, loc_type: LocationType,activity_time,
+                 loc_name, state_name, star=False):
         self.name: str = name
         self.pos: tuple[float, float] = (x, y)
         self.loc_type: LocationType = loc_type
+        self.activity_time = activity_time
+        self.loc_name = loc_name
+        self.state_name = state_name
+        self.star = star
 
     def __str__(self):
         return self.name
@@ -33,12 +38,15 @@ g_counter = 1
 
 
 class Node:
-    def __init__(self, loc_name: str, dst_nodes: list, transition_state: Enum):
+    def __init__(self, loc_name: str, dst_nodes: list, transition_state: Enum,
+                 loaded=False, load_loc=None, star=False):
         global g_counter
         self._node_name = f'v_{g_counter}'
         self._loc_name: str = loc_name
         self._dst_nodes: list[Node] = dst_nodes
         self._transition_state: Enum = transition_state
+        self_loaded = loaded
+        self.star = star  # star means a destination node
         g_counter += 1
 
     @property
@@ -50,7 +58,8 @@ class Node:
         return self._transition_state
 
     def __str__(self):
-        return f'{self._node_name}, {self._loc_name}, {self._transition_state}, {self._dst_nodes}'
+        # return f'{self._node_name}, {self._loc_name}, {self._transition_state}, {self._dst_nodes}'
+        return f'{self._node_name}'
 
     def __repr__(self):
         return f'{self._node_name}'
@@ -95,28 +104,51 @@ def main():
     # Create a networkx graph object
     road_network = nx.DiGraph()
 
+    # data = {
+    #     'A': (0, 0, LocationType.CRUSHER, 90),
+    #     'B': (1.73, 1, LocationType.ORE_LOAD, 120),
+    #     'C': (1.73, -1, LocationType.ORE_LOAD, 120),
+    #     'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
+    # }
+
     data = {
         'A': (0, 0, LocationType.CRUSHER, 90),
         'B': (1.73, 1, LocationType.ORE_LOAD, 120),
         'C': (1.73, -1, LocationType.ORE_LOAD, 120),
         'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
+        'E': (2., 0, LocationType.INTSCT, 0),
     }
+
+
     loc_dict = {}
     for name, attr in data.items():
-        loc = Location(name, attr[0], attr[1], attr[2], attr[3])
+        # name, x, y, loc_type, activity_time, loaded, star, loc_name):
+        loc = Location(name, attr[0], attr[1], attr[2], attr[3], name, None)
         loc_dict[name] = loc
 
     # Add edges to to the graph object
     # Each tuple represents an edge between two nodes
 
+    # road_network.add_edges_from([
+    #     (loc_dict['A'], loc_dict['D']),
+    #     (loc_dict['D'], loc_dict['A']),
+    #     (loc_dict['B'], loc_dict['D']),
+    #     (loc_dict['D'], loc_dict['B']),
+    #     (loc_dict['C'], loc_dict['D']),
+    #     (loc_dict['D'], loc_dict['C']),
+    # ])
+
     road_network.add_edges_from([
         (loc_dict['A'], loc_dict['D']),
         (loc_dict['D'], loc_dict['A']),
-        (loc_dict['B'], loc_dict['D']),
-        (loc_dict['D'], loc_dict['B']),
+        (loc_dict['D'], loc_dict['E']),
+        (loc_dict['E'], loc_dict['D']),
+        (loc_dict['B'], loc_dict['E']),
+        (loc_dict['E'], loc_dict['B']),
         (loc_dict['C'], loc_dict['D']),
         (loc_dict['D'], loc_dict['C']),
     ])
+
     for edge in road_network.edges:
         road_network.edges[edge]["EMPTY_TRAVEL_TIME"] = 40
         road_network.edges[edge]["LOADED_TRAVEL_TIME"] = 60
@@ -126,23 +158,23 @@ def main():
         pos[loc_dict[name]] = (loc_dict[name].pos[0], loc_dict[name].pos[1])
 
     # Draw the resulting road_network
-    # fig, ax = plt.subplots()
-    # dump_list = [loc for loc in road_network.nodes if
-    #              loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
-    # load_list = [loc for loc in road_network.nodes if
-    #              loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
-    # int_list = [loc for loc in road_network.nodes if loc.loc_type == LocationType.INTSCT]
-    # nx.draw_networkx_nodes(road_network, pos=pos, nodelist=load_list, node_size=500, node_color='lightgreen',
-    #                        edgecolors='gray')
-    # nx.draw_networkx_nodes(road_network, pos=pos, nodelist=dump_list, node_size=500, node_color='red',
-    #                        edgecolors='gray')
-    # nx.draw_networkx_nodes(road_network, pos=pos, nodelist=int_list, node_size=500, node_color='white',
-    #                        edgecolors='gray')
-    # nx.draw_networkx_labels(road_network, pos=pos, font_color="black")
-    # nx.draw_networkx_edges(road_network, pos=pos, width=1.0, alpha=1.0, edge_color="black", arrowsize=10.0,
-    #                        connectionstyle='arc3, rad = 0.1', ax=ax)
-    # plt.axis('equal')
-    # plt.show()
+    fig, ax = plt.subplots()
+    dump_list = [loc for loc in road_network.nodes if
+                 loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
+    load_list = [loc for loc in road_network.nodes if
+                 loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
+    int_list = [loc for loc in road_network.nodes if loc.loc_type == LocationType.INTSCT]
+    nx.draw_networkx_nodes(road_network, pos=pos, nodelist=load_list, node_size=500, node_color='lightgreen',
+                           edgecolors='gray')
+    nx.draw_networkx_nodes(road_network, pos=pos, nodelist=dump_list, node_size=500, node_color='red',
+                           edgecolors='gray')
+    nx.draw_networkx_nodes(road_network, pos=pos, nodelist=int_list, node_size=500, node_color='white',
+                           edgecolors='gray')
+    nx.draw_networkx_labels(road_network, pos=pos, font_color="black")
+    nx.draw_networkx_edges(road_network, pos=pos, width=1.0, alpha=1.0, edge_color="black", arrowsize=10.0,
+                           connectionstyle='arc3, rad = 0.1', ax=ax)
+    plt.axis('equal')
+    plt.show()
 
     # Transition graph
     # NOTE: start from the sortest paths version for the simplicity.
@@ -160,189 +192,171 @@ def main():
     loading_loc_name_list = [e.name for e in load_list]
     transition_state = init_transition_state(loading_loc_name_list)
 
-    transition_graph = nx.DiGraph()
     transition_nodes = []
     transition_graph = nx.DiGraph()
 
     for load in load_list:
 
-        cycle_path = []
-        shortest_path = nx.shortest_path(road_network, source=dump, target=load, weight='EMPTY_TRAVEL_TIME',
+        # a cycle in a road network
+        cycle_path:list[Location] = []
+        shortest_path = nx.shortest_path(road_network,
+                                         source=dump,
+                                         target=load,
+                                         weight='EMPTY_TRAVEL_TIME',
                                          method="dijkstra")
+        # add the outward trip. remove the end of the path because we will add the return trip
+        cycle_path.extend(shortest_path[:-1])
+        shortest_path = nx.shortest_path(road_network,
+                                         source=load,
+                                         target=dump,
+                                         weight='LOAD_TRAVEL_TIME',
+                                         method="dijkstra")
+        # add the return trip
         cycle_path.extend(shortest_path)
-        shortest_path = nx.shortest_path(road_network, source=load, target=dump, weight='LOAD_TRAVEL_TIME',
-                                         method="dijkstra")
-        cycle_path.extend(shortest_path[1:-1])
         cycle_list.append(cycle_path)
+        print(f'{cycle_path=}')
 
-        print(cycle_path)
+        # a cycle in a transition graph
         transition_cycle = []
-        transition_cycle = []
-
 
         p_loc = None
         is_loaded = False
         loaded_loc = None
         for idx, loc in enumerate(cycle_path):
 
-
+            # For loadings. They have three types of nodes: (1) EMPTY, (2) LOADED*_{loc.name} and (3) LOADED_{loc.name}
             if loc.loc_type == LocationType.WST_DUMP or loc.loc_type == LocationType.CRUSHER:
-                transition_cycle.append(loc)
 
+                if is_loaded:
+                    # name, x, y, loc_type, activity_time, loaded, star, loc_name):
+                    state = "LOADED_" + loaded_loc.loc_name
+                    new_loc = Location(loc.name + '_L_' + str(loaded_loc), loc.pos[0], loc.pos[1], loc.loc_type,
+                                       loc.activity_time, loc.name, state)
+                    transition_cycle.append(new_loc)
+
+                    state = "EMPTY_S_" + loaded_loc.loc_name
+                    new_loc = Location(loc.name + '_E_S_' + str(loaded_loc), loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                                       loc.activity_time, loc.name, state, star=True)
+                    transition_cycle.append(new_loc)
+                else:
+                    state = "EMPTY"
+                    new_loc = Location(loc.name + '_E', loc.pos[0], loc.pos[1], loc.loc_type,
+                                       loc.activity_time, loc.name, state)
+                    transition_cycle.append(new_loc)
+
+            # For dumpings. They have three types of nodes: (1) LOADED_{loc.name}, (2) EMPTY*_{loc.name} and (3) EMPTY
             if loc.loc_type == LocationType.WST_LOAD or loc.loc_type == LocationType.ORE_LOAD:
                 is_loaded = True
                 loaded_loc = loc
-                transition_cycle.append(loc)
-
-            if loc.loc_type == LocationType.INTSCT:
-                if is_loaded:
-                    new_loc = Location(loc.name + '_L_' + str(loaded_loc), loc.pos[0], loc.pos[1], LocationType.INTSCT, 0)
-                else:
-                    new_loc = Location(loc.name + '_E', loc.pos[0], loc.pos[1], LocationType.INTSCT, 0)
-
+                state = "EMPTY"
+                new_loc = Location(loc.name + '_E', loc.pos[0], loc.pos[1], loc.loc_type,
+                                   loc.activity_time, loc.name, state)
                 transition_cycle.append(new_loc)
 
-        for idx, loc in enumerate(transition_cycle):
+                state = 'LOADED_S_' + loaded_loc.loc_name
+                new_loc = Location(loc.name + '_L_S_' + loaded_loc.name, loc.pos[0], loc.pos[1], loc.loc_type,
+                                   loc.activity_time, loc.name,  state, star=True)
+                transition_cycle.append(new_loc)
 
+                state = 'LOADED_' + loaded_loc.loc_name
+                new_loc = Location(loc.name + '_L_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], loc.loc_type,
+                                   loc.activity_time, loc.name, state)
+                transition_cycle.append(new_loc)
+
+            # For intersections. They have two types. (1) LOADED_{loc.name} and (2) EMPTY
+            if loc.loc_type == LocationType.INTSCT:
+                if is_loaded:
+                    state = 'LOADED_' + loaded_loc.loc_name
+                    new_loc = Location(loc.name + '_L_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                                       loc.activity_time, loc.name, state)
+                else:
+                    state = 'EMPTY'
+                    new_loc = Location(loc.name + '_E', loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                                       loc.activity_time, loc.name, state)
+                transition_cycle.append(new_loc)
+
+        print(f'{transition_cycle=}')
+
+        # build a transition graph
+        for idx, loc in enumerate(transition_cycle):
             if p_loc is None:
                 p_loc = transition_cycle[-1]
             else:
                 p_loc = transition_cycle[idx-1]
-
             transition_graph.add_edge(p_loc, loc)
 
-
+    # Find nodes which have the same names
     del_locs = []
-    for loc in transition_graph.nodes:
-        print(loc, id(loc))
-        if loc.name == 'D_E':
-            del_locs.append(loc)
+    visited_id = []
+    for loc1 in transition_graph.nodes:
+        visited_id.append(id(loc1))
+        for loc2 in transition_graph.nodes:
+            if id(loc2) in visited_id:
+                continue
 
-    del_arc = list(transition_graph.out_edges(del_locs[0]))[0]
-    print(del_arc)
-    transition_graph.remove_node(del_locs[0])
-    transition_graph.add_edge(del_locs[1], del_arc[1])
+            if id(loc1) != id(loc2) and loc1.name == loc2.name:
+                del_locs.append(loc1)
 
+    # Delete and reconnect nodes
+    for loc in del_locs:
 
-    #Q transition_graph.remove_node(del_loc)
-    nx.draw_networkx(transition_graph)
+        # find duplicated nodes witch have the same name in a graph
+        loc_same_names = []
+        for _loc in transition_graph.nodes:
+            if id(_loc) != id(loc) and _loc.name == loc.name:
+                loc_same_names.append(_loc)
+
+        # delete the target node and reconnect to the duplicated node.
+        for loc_same_name in loc_same_names:
+
+            # find in-edges and reconnect
+            in_arc  = list(transition_graph.in_edges(loc))[0]
+            loc_from = in_arc[0]
+            loc_to   = loc_same_name
+            transition_graph.add_edge(loc_from, loc_to)
+
+            # find in-edges and reconnect
+            out_arc = list(transition_graph.out_edges(loc))[0]
+            loc_to = out_arc[1]
+            loc_from = loc_same_name
+            transition_graph.add_edge(loc_from, loc_to)
+
+            transition_graph.remove_node(loc)
+
+    transition_pos = nx.spring_layout(transition_graph, seed=200)
+    nx.draw_networkx_nodes(transition_graph, pos=transition_pos, node_color='royalblue', node_size=500)
+    nx.draw_networkx_edges(transition_graph, pos=transition_pos,
+                           arrowstyle='->',
+                           arrowsize=20,
+                           edge_color='salmon')
+    nx.draw_networkx_labels(transition_graph, pos=transition_pos, font_color="black")
     plt.show()
 
-    #     for idx, loc in enumerate(cycle_path):
+    transition_graph2 = nx.DiGraph()
+    transition_dict = {}
+    for loc in transition_graph.nodes:
+        loc: Location
+        state = loc.state_name
+        if loc.star:
+            transition_dict[loc] = Node(loc.loc_name, [], transition_state[state], star=True)
+        else:
+            transition_dict[loc] = Node(loc.loc_name, [], transition_state[state], star=False)
 
+    for arc in transition_graph.edges:
+        node_from = transition_dict[arc[0]]
+        node_to   = transition_dict[arc[1]]
+        transition_graph2.add_edge(node_from, node_to)
 
-    #         if loc.loc_type == LocationType.CRUSHER:
-    #
-    #             new_node = Node(loc.name, [], transition_state['EMPTY'])
-    #             if not new_node.is_in(transition_nodes):
-    #                 transition_nodes.append(new_node)
-    #
-    #                 # this is the first node in the transition_graph
-    #                 transition_graph.add_node(new_node)
-    #
-    #             else:
-    #                 g_counter -= 1
-    #                 print(f'{new_node} is already in the transition nodes.')
-    #
-    #             new_node = Node(loc.name, [], transition_state[f'LOADED_{load}'])
-    #             if not new_node.is_in(transition_nodes):
-    #                 transition_nodes.append(new_node)
-    #
-    #                 # this is the second node in the transition graph
-    #                 transition_graph.add_node(new_node)
-    #                 # now we can add an arc
-    #                 p_node = transition_nodes[0]
-    #                 transition_graph.add_edge(p_node, new_node)
-    #
-    #             else:
-    #                 g_counter -= 1
-    #                 print(f'{new_node} is already in the transition nodes.')
-    #
-    #             new_node = Node(loc.name, [], transition_state[f'EMPTY_S_{load}'])
-    #             if not new_node.is_in(transition_nodes):
-    #                 transition_nodes.append(new_node)
-    #
-    #                 # this is the third one. Find the leaf and connect with a new node.
-    #                 leaf = get_leaf(transition_graph)
-    #                 transition_graph.add_edge(leaf, new_node)
-    #             else:
-    #                 g_counter -= 1
-    #                 print(f'{new_node} is already in the transition nodes.')
-    #
-    #
-    #         elif loc.loc_type == LocationType.INTSCT:
-    #             if is_loaded:
-    #                 new_node = Node(loc.name, [], transition_state[f'LOADED_{load}'])
-    #                 if not new_node.is_in(transition_nodes):
-    #                     transition_nodes.append(new_node)
-    #                     leaf = get_leaf(transition_graph)
-    #                     transition_graph.add_edge(leaf, new_node)
-    #
-    #                 else:
-    #                     g_counter -= 1
-    #                     print(f'{new_node} is already in the transition nodes.')
-    #             else:
-    #                 new_node = Node(loc.name, [], transition_state['EMPTY'])
-    #                 if not new_node.is_in(transition_nodes):
-    #                     transition_nodes.append(new_node)
-    #                     leaf = get_leaf(transition_graph)
-    #                     transition_graph.add_edge(leaf, new_node)
-    #
-    #                 else:
-    #                     g_counter -= 1
-    #                     print(f'{new_node} is already in the transition nodes.')
-    #
-    #
-    #         elif loc.loc_type == LocationType.ORE_LOAD:
-    #
-    #             new_node = Node(loc.name, [], transition_state['EMPTY'])
-    #             if not new_node.is_in(transition_nodes):
-    #                 transition_nodes.append(new_node)
-    #                 leaf = get_leaf(transition_graph)
-    #                 transition_graph.add_edge(leaf, new_node)
-    #
-    #             else:
-    #                 g_counter -= 1
-    #                 print(f'{new_node} is already in the transition nodes.')
-    #
-    #             new_node = Node(loc.name, [], transition_state[f'LOADED_S_{load}'])
-    #             if not new_node.is_in(transition_nodes):
-    #                 transition_nodes.append(new_node)
-    #                 leaf = get_leaf(transition_graph)
-    #                 transition_graph.add_edge(leaf, new_node)
-    #
-    #             else:
-    #                 g_counter -= 1
-    #                 print(f'{new_node} is already in the transition nodes.')
-    #
-    #             new_node = Node(loc.name, [], transition_state[f'LOADED_{load}'])
-    #             if not new_node.is_in(transition_nodes):
-    #                 transition_nodes.append(new_node)
-    #                 leaf = get_leaf(transition_graph)
-    #                 transition_graph.add_edge(leaf, new_node)
-    #
-    #             else:
-    #                 g_counter -= 1
-    #                 print(f'{new_node} is already in the transition nodes.')
-    #
-    #             is_loaded = True
-    #
-    #     # build a transition_graph
-    #     print(f'{transition_cycle=}')
-    #     print(f'{transition_nodes=}')
-    #
-    #     # for idx, _ in enumerate(transition_cycle):
-    #     #     node_from = transition_cycle[idx]
-    #     #     node_to = transition_cycle[(idx+1) % len(transition_cycle)]
-    #     #     transition_graph.add_edge(node_from, node_to)
-    #
-    # print(transition_graph)
-    #
-    # for node in transition_graph.nodes:
-    #     print(node)
-    #
-    # nx.draw_networkx(transition_graph)
-    # plt.show()
+    print(transition_graph2)
+    transition_pos = nx.spring_layout(transition_graph2, seed=201)
+    nx.draw_networkx_nodes(transition_graph2, pos=transition_pos, node_color='royalblue', node_size=500)
+    nx.draw_networkx_edges(transition_graph2, pos=transition_pos,
+                           arrowstyle='->',
+                           arrowsize=20,
+                           edge_color='salmon')
+    nx.draw_networkx_labels(transition_graph2, pos=transition_pos, font_color="black")
+    plt.show()
+
 
 
 def get_leaf(transition_graph):
