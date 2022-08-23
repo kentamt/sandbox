@@ -15,7 +15,7 @@ class LocationType(Enum):
 
 class TransitionNode:
     def __init__(self, name: str, x: float, y: float, loc_type: LocationType,activity_time,
-                 loc_name, state_name, star=False):
+                 loc_name, state_name, star=False, is_loaded=None, loaded_loc=None):
         self.name: str = name
         self.pos: tuple[float, float] = (x, y)
         self.loc_type: LocationType = loc_type
@@ -23,7 +23,9 @@ class TransitionNode:
         self.loc_name = loc_name
         self.state_name = state_name
         self.star = star
-        
+        self.is_loaded = is_loaded
+        self.loaded_loc = loaded_loc
+
     def __str__(self):
         return self.name
     
@@ -67,17 +69,20 @@ def main():
                         # name, x, y, loc_type, activity_time, loaded, star, loc_name):
                         state = "LOADED_" + loaded_loc.loc_name
                         new_loc = TransitionNode(loc.name + '_LOAD_' + str(loaded_loc), loc.pos[0], loc.pos[1], loc.loc_type,
-                                                 loc.activity_time, loc.name, state)
+                                                 loc.activity_time, loc.name, state,
+                                                 is_loaded=True, loaded_loc=loaded_loc)
                         transition_cycle.append(new_loc)
 
                         state = "EMPTY_S_" + loaded_loc.loc_name
-                        new_loc = TransitionNode(loc.name + '_EMPTY_S_' + str(loaded_loc), loc.pos[0], loc.pos[1], LocationType.INTSCT,
-                                                 loc.activity_time, loc.name, state, star=True)
+                        new_loc = TransitionNode(loc.name + '_EMPTY_S_' + str(loaded_loc), loc.pos[0], loc.pos[1], loc.loc_type,
+                                                 loc.activity_time, loc.name, state, star=True,
+                                                 is_loaded=False, loaded_loc=loaded_loc)
                         transition_cycle.append(new_loc)
                     else:
                         state = "EMPTY"
                         new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], loc.loc_type,
-                                                 loc.activity_time, loc.name, state)
+                                                 loc.activity_time, loc.name, state,
+                                                 is_loaded = False, loaded_loc = loaded_loc)
                         transition_cycle.append(new_loc)
 
                 # For dumpings. They have three types of nodes: (1) LOADED_{loc.name}, (2) EMPTY*_{loc.name} and (3) EMPTY
@@ -86,17 +91,20 @@ def main():
                     loaded_loc = loc
                     state = "EMPTY"
                     new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], loc.loc_type,
-                                             loc.activity_time, loc.name, state)
+                                             loc.activity_time, loc.name, state,
+                                             is_loaded=False, loaded_loc=loaded_loc)
                     transition_cycle.append(new_loc)
 
                     state = 'LOADED_S_' + loaded_loc.loc_name
                     new_loc = TransitionNode(loc.name + '_LOAD_S_' + loaded_loc.name, loc.pos[0], loc.pos[1], loc.loc_type,
-                                             loc.activity_time, loc.name, state, star=True)
+                                             loc.activity_time, loc.name, state, star=True,
+                                             is_loaded=True, loaded_loc=loaded_loc)
                     transition_cycle.append(new_loc)
 
                     state = 'LOADED_' + loaded_loc.loc_name
                     new_loc = TransitionNode(loc.name + '_LOAD_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], loc.loc_type,
-                                             loc.activity_time, loc.name, state)
+                                             loc.activity_time, loc.name, state,
+                                             is_loaded=True, loaded_loc=loaded_loc)
                     transition_cycle.append(new_loc)
 
                 # For intersections. They have two types. (1) LOADED_{loc.name} and (2) EMPTY
@@ -104,11 +112,13 @@ def main():
                     if is_loaded:
                         state = 'LOADED_' + loaded_loc.loc_name
                         new_loc = TransitionNode(loc.name + '_LOAD_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1], LocationType.INTSCT,
-                                                 loc.activity_time, loc.name, state)
+                                                 loc.activity_time, loc.name, state,
+                                                 is_loaded=True, loaded_loc=loaded_loc)
                     else:
                         state = 'EMPTY'
                         new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], LocationType.INTSCT,
-                                                 loc.activity_time, loc.name, state)
+                                                 loc.activity_time, loc.name, state,
+                                                 is_loaded=False, loaded_loc=loaded_loc)
                     transition_cycle.append(new_loc)
 
             print(f'{transition_cycle=}')
@@ -153,6 +163,21 @@ def main():
             print(f'remove {loc_same_name}')
             transition_graph.remove_node(loc_same_name)
 
+
+    # Delete edges not allowed
+    # remove_edges = []
+    # for edge in transition_graph.edges:
+    #     loc_from: TransitionNode = edge[0]
+    #     loc_to: TransitionNode = edge[1]
+    #
+    #     if loc_from.loc_type != loc_to.loc_type:
+    #         if (loc_from.is_loaded and not loc_to.is_loaded) or (not loc_from.is_loaded and loc_to.is_loaded):
+    #             remove_edges.append(edge)
+
+    # for edge in remove_edges:
+    #     transition_graph.remove_edge(*edge)
+
+
     # Draw the resulting
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
@@ -193,23 +218,58 @@ def main():
                            arrowsize=10.0,
                            connectionstyle='arc3, rad = 0.1',
                            ax=axes[0])
+    axes[0].set_title('Road Network')
 
-    transition_pos = nx.spring_layout(transition_graph, seed=200)
+
+    transition_load_list = [loc for loc in transition_graph.nodes if
+                            loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
+    transition_dump_list = [loc for loc in transition_graph.nodes if
+                            loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
+    transition_intsct_list = [loc for loc in transition_graph.nodes if
+                              loc.loc_type == LocationType.INTSCT]
+
+    transition_pos = nx.spring_layout(transition_graph)
+    transition_pos = nx.kamada_kawai_layout(transition_graph)
+    label_pos = {}
+    for loc, pos in transition_pos.items():
+        label_pos[loc] = (pos[0], pos[1] + 0.1)
+
     nx.draw_networkx_nodes(transition_graph,
                            pos=transition_pos,
-                           node_color='royalblue',
+                           nodelist=transition_load_list,
+                           node_color='lightgreen',
+                           edgecolors='gray',
                            node_size=200,
                            ax=axes[1])
+    nx.draw_networkx_nodes(transition_graph,
+                           pos=transition_pos,
+                           nodelist=transition_dump_list,
+                           node_color='red',
+                           edgecolors='gray',
+                           node_size=200,
+                           ax=axes[1])
+    nx.draw_networkx_nodes(transition_graph,
+                           pos=transition_pos,
+                           nodelist=transition_intsct_list,
+                           node_color='white',
+                           edgecolors='gray',
+                           node_size=200,
+                           ax=axes[1])
+
     nx.draw_networkx_edges(transition_graph,
                            pos=transition_pos,
                            arrowstyle='->',
                            arrowsize=20,
-                           edge_color='salmon',
+                           edge_color='black',
                            ax=axes[1])
     nx.draw_networkx_labels(transition_graph,
-                           pos=transition_pos,
+                           pos=label_pos,
                            font_color="black",
+                           font_size=8,
                            ax=axes[1])
+
+    axes[1].set_title('Transition Graph')
+
     plt.axis('equal')
     plt.show()
 
@@ -218,8 +278,8 @@ def get_cycle_path_list(cycle_path_list, dump, load, road_network):
     outward_paths = find_trip(dump, load, road_network, paths_type='all_simple')
     return_paths = find_trip(load, dump, road_network, paths_type='all_simple')
     for outward_path in outward_paths:
-        cycle_path: list[TransitionNode] = []
         for return_path in return_paths:
+            cycle_path: list[TransitionNode] = []
             # concat the outward and return trip. remove the end of the path because we will add the return trip
             cycle_path.extend(outward_path[:-1])
             cycle_path.extend(return_path)
@@ -322,7 +382,8 @@ def init_road_network(input_type):
             (loc_dict['D'], loc_dict['F']),
             (loc_dict['B'], loc_dict['E']),
             (loc_dict['E'], loc_dict['B']),
-            (loc_dict['F'], loc_dict['B']),
+            (loc_dict['F'], loc_dict['E']),
+            (loc_dict['E'], loc_dict['F']),
             (loc_dict['C'], loc_dict['D']),
             (loc_dict['D'], loc_dict['C']),
         ])
