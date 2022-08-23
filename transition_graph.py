@@ -46,8 +46,8 @@ def main():
     int_list = get_intersection_list(road_network)
 
     # search for cycles from dumping point to loading point
-    cycle_path_list = []
     for dump in dump_list:
+        cycle_path_list = []
         for load in load_list:
             
             cycle_path_list = get_cycle_path_list(cycle_path_list, dump, load, road_network)
@@ -163,21 +163,6 @@ def main():
             print(f'remove {loc_same_name}')
             transition_graph.remove_node(loc_same_name)
 
-
-    # Delete edges not allowed
-    # remove_edges = []
-    # for edge in transition_graph.edges:
-    #     loc_from: TransitionNode = edge[0]
-    #     loc_to: TransitionNode = edge[1]
-    #
-    #     if loc_from.loc_type != loc_to.loc_type:
-    #         if (loc_from.is_loaded and not loc_to.is_loaded) or (not loc_from.is_loaded and loc_to.is_loaded):
-    #             remove_edges.append(edge)
-
-    # for edge in remove_edges:
-    #     transition_graph.remove_edge(*edge)
-
-
     # Draw the resulting
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
@@ -228,7 +213,7 @@ def main():
     transition_intsct_list = [loc for loc in transition_graph.nodes if
                               loc.loc_type == LocationType.INTSCT]
 
-    transition_pos = nx.spring_layout(transition_graph)
+    # transition_pos = nx.spring_layout(transition_graph)
     transition_pos = nx.kamada_kawai_layout(transition_graph)
     label_pos = {}
     for loc, pos in transition_pos.items():
@@ -284,9 +269,6 @@ def get_cycle_path_list(cycle_path_list, dump, load, road_network):
             cycle_path.extend(outward_path[:-1])
             cycle_path.extend(return_path)
             cycle_path_list.append(cycle_path)
-            # print(f'{cycle_path=}')
-    # print(f'{cycle_path_list=}')
-
     return cycle_path_list
 
 
