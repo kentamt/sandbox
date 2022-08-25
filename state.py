@@ -1,5 +1,5 @@
 import numpy as np
-
+from transition_graph import RoadNetwork, TransitionGraph
 
 class ObjectiveFunction():
     """"""
@@ -42,8 +42,9 @@ class GoalFunction():
 class SystemState:
     """"""
 
-    def __init__(self, G, num_trucks, num_locations, num_pairs):
+    def __init__(self, transition_graph, num_trucks, num_locations, num_pairs):
         """Constructor for """
+        self.G = transition_graph
         self.d = [None] * num_trucks  #
         self.td = [None] * num_trucks  # Estimated time of arrival at the next node
         self.u = [None] * num_locations
@@ -90,13 +91,14 @@ class SystemState:
 
     def transition(self, t: float):
         """"""
-        i = np.argmin(self.td)
-        self.d[i] = label_e # the label of e ∈ E.
-        self.t[i] = np.max(self.td[i], u_ke + f_e)
-        self.u[i] = self.t[i]
-        self.r[i] = self.r[i] + r_e
-        self.o1 = self.o(t)
-        self.o2 = self.o2 + self.o.xi ** 1.0/ dt
+        pass
+        # i = np.argmin(self.td)
+        # self.d[i] = label_e # the label of e ∈ E.
+        # self.t[i] = np.max(self.td[i], u_ke + f_e)
+        # self.u[i] = self.t[i]
+        # self.r[i] = self.r[i] + r_e
+        # self.o1 = self.o(t)
+        # self.o2 = self.o2 + self.o.xi ** 1.0/ dt
         self.t = t
 
     def evaluate(self):
@@ -108,18 +110,20 @@ class SystemState:
         print(self)
 
 def main():
+    road_network = RoadNetwork('1')
+    transition_graph = TransitionGraph(road_network.R)
 
     n = 3
     m = 5
     p = 2  # the number of load-unload pair
-    s = SystemState(n, m, p)
+    s = SystemState(transition_graph, n, m, p)
 
     t = 0  # [sec]
     dt = 5.0  # [sec]
 
     s.init(t)
     for _ in range(10):
-        s.step(t)
+        s.transition(t)
         s.show()
         t += dt
 

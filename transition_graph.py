@@ -36,6 +36,20 @@ class TransitionNode:
     def __repr__(self):
         return self.__str__()
 
+class TransitionLabel:
+    def __init__(self, l, f, k, a, r):
+        """
+        l = duration (distance) of transition e
+        f = distance between a preceding vehicle of e
+        k = road index
+        a = reward bucket index
+        r = reward bucket
+        """
+        self.l = None
+        self.f = None
+        self.k = None
+        self.a = None
+        self.r = None
 
 class RoadNetwork:
     """"""
@@ -113,7 +127,7 @@ class RoadNetwork:
                 (loc_dict['D'], loc_dict['C']),
             ])
         for edge in road_network.edges:
-            road_network.edges[edge]["EMPTY_TRAVEL_TIME"] = 40
+            road_network.edges[edge]["EMPTY_TRAVEL_TIME"] = 40  # DEBUG: should be determined by distances
             road_network.edges[edge]["LOADED_TRAVEL_TIME"] = 60
 
         self.R = road_network
@@ -122,7 +136,10 @@ class RoadNetwork:
 class TransitionGraph:
     def __init__(self, road_network: nx.DiGraph):
         self.R = road_network
+        self.G = None
+        self.distance_dict: dict = dict()
         self.G = self.__build()
+        self.__set_labels_edges()
 
     def find_trip(self, dump, load, paths_type='shortest', weight=None):
 
@@ -182,6 +199,26 @@ class TransitionGraph:
         dump_list = [loc for loc in self.R.nodes if
                      loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
         return dump_list
+
+    def init_distance_dict(self):
+        """
+        init physical distances (duration) according to the road network
+        :return:
+        """
+
+
+        for edge in self.R.edges:
+            loc_fr: TransitionNode = edge[0]
+            loc_to: TransitionNode = edge[1]
+            if not loc_fr.loc_name in self.distance_dict.keys():
+                self.distance_dict[loc_fr.loc_name] = {}
+            else:
+                if loc_fr.is_loaded:
+                    travel_time = edge['LOADED_TRAVEL_TIME']
+                else:
+                    travel_time = edge['EMPTY_TRAVEL_TIME']
+                self.distance_dict[loc_fr.loc_name][loc_to.loc_name] = travel_time
+
 
     def __build(self):
 
@@ -312,6 +349,14 @@ class TransitionGraph:
                 print(f'remove {loc_same_name}')
                 self.G.remove_node(loc_same_name)
         return self.G
+
+    def __set_labels_edges(self):
+        label = TransitionLabel(0,0,0,0,0)
+        for edge in self.G.edges:
+            loc_from = edge[0]
+            loc_to = edge[1]
+
+            self.G.edges[edge]["transition"] = label
 
     def show(self):
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
