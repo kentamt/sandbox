@@ -3,6 +3,9 @@ from enum import Enum, auto
 import networkx as nx
 from matplotlib import pyplot as plt
 import matplotlib
+from tabulate import tabulate
+
+from logger import *
 
 matplotlib.use('TkAgg')
 
@@ -12,7 +15,7 @@ class LocationType(Enum):
     # WST_LOAD = auto(),
     CRUSHER = auto(),
     # WST_DUMP = auto(),
-    STOCK_PILE = auto(),
+    # STOCK_PILE = auto(),
     INTSCT = auto()
 
 
@@ -143,7 +146,10 @@ class TransitionGraph:
         self.R = road_network
         self.G = None
         self.distance_dict: dict = dict()
+
+        # build network
         self.G = self.__build()
+        # add transition labels
         self.__set_labels_edges()
 
     def find_trip(self, dump, load, paths_type='shortest', weight=None):
@@ -161,7 +167,7 @@ class TransitionGraph:
             all_simple_paths = nx.all_simple_paths(self.R, dump, load)
             ret = list(all_simple_paths)  # because all_simple_paths return a generator
         else:
-            print(f'Unknown paths type. {paths_type}.')
+            logger.error(f'Unknown paths type. {paths_type}.')
             raise ValueError
 
         return ret
@@ -314,7 +320,7 @@ class TransitionGraph:
                                                      is_loaded=False, loaded_loc=loaded_loc)
                         transition_cycle.append(new_loc)
 
-                print(f'{transition_cycle=}')
+                logger.debug(f'{transition_cycle=}')
 
                 # build a transition graph
                 for idx, loc in enumerate(transition_cycle):
@@ -351,7 +357,7 @@ class TransitionGraph:
                     loc_from = loc
                     self.G.add_edge(loc_from, loc_to)
 
-                print(f'remove {loc_same_name}')
+                logger.debug(f'remove {loc_same_name}')
                 self.G.remove_node(loc_same_name)
         return self.G
 
@@ -363,7 +369,7 @@ class TransitionGraph:
         elif node_fr.star and not node_to.star:
             return TransitionType.REWARDING
         else:
-            print('Unknown combination of nodes')
+            logger.debug('Unknown combination of nodes')
             raise ValueError
 
     def __is_activity_loading(self, node_fr, node_to):
@@ -381,16 +387,13 @@ class TransitionGraph:
         r = reward bucket
         """
 
-        label = TransitionLabel(0,0,0,0,0)
+
         for edge in self.G.edges:
+            label = TransitionLabel(0, 0, 0, 0, 0)
             node_from: TransitionNode = edge[0]
             node_to: TransitionNode = edge[1]
-
-            # set duration l_e.
-            # if the transition is physical travel, travel times are used
-            # if the transition is activity, activity times are used
-            # if the transition is rewarding, duration is 0
             transition_type = self.__check_transition_type(node_from, node_to)
+
             if transition_type == TransitionType.TRAVELING:
                 if node_from.is_loaded:
                     label.l = 40
@@ -423,19 +426,16 @@ class TransitionGraph:
                 else:
                     label.a = (node_from.loc_name, node_to.loc_name)
 
-            # set road index k_e
-            # if the transition is physical travel, the index is the name of the edge
-            # if the transition is activity, the index is the name of the locatoin
-            # if the transition is rewarding, the index is None
-
-            # set reward bucket index a_e
-            # if the transition is rewarding, and it is loading, set (loading_loc, None)
-            # if the transition is rewarding, and it is dumping, set (loading_loc, loc)
-
-            # set reward bucket r_e
-            # if the transition is rewarding, set +1
-
             self.G.edges[edge]["transition"] = label
+
+    def show_labels_table(self):
+        table = []
+        for edge in self.G.edges:
+            node_fr, node_to = edge
+            l = self.G.edges[edge]['transition']
+            row = [f'{node_fr.loc_name} ==> {node_to.loc_name}', l.l, l.f, l.k, l.a, l.r]
+            table.append(row)
+        print(tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
 
     def show(self):
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -485,7 +485,7 @@ class TransitionGraph:
                                 loc.loc_type == LocationType.CRUSHER ] #  or loc.loc_type == LocationType.WST_DUMP]
         transition_intsct_list = [loc for loc in self.G.nodes if
                                   loc.loc_type == LocationType.INTSCT]
-        # transition_pos = nx.spring_layout(self.G)
+
         transition_pos = nx.kamada_kawai_layout(self.G)
         label_pos = {}
         for loc, pos in transition_pos.items():
@@ -536,7 +536,7 @@ def main():
     # Transition graph
     transition_graph = TransitionGraph(road_network.R)
     transition_graph.show()
-
+    transition_graph.show_labels_table()
 
 if __name__ == '__main__':
     main()
