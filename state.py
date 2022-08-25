@@ -45,13 +45,13 @@ class SystemState:
     def __init__(self, transition_graph, num_trucks, num_locations, num_pairs):
         """Constructor for """
         self.G = transition_graph
-        self.d = [None] * num_trucks  #
-        self.td = [None] * num_trucks  # Estimated time of arrival at the next node
-        self.u = [None] * num_locations
-        self.r = [None] * num_pairs
-        self.o1 = None
-        self.o2 = None
-        self.t = None
+        self.d = [0] * num_trucks  #
+        self.td = [0] * num_trucks  # Estimated time of arrival at the next node
+        self.u = [0] * num_locations
+        self.r = [0] * num_pairs
+        self.o1 = 0
+        self.o2 = 0
+        self.t = 0
 
         self.o = ObjectiveFunction(0.5)
 
@@ -61,21 +61,25 @@ class SystemState:
         ret += "d=["
         for e in self.d:
             ret += f"{e} "
+        ret = ret[:-1]
         ret += '], '
 
         ret += "td=["
         for e in self.td:
             ret += f"{e} "
+        ret = ret[:-1]
         ret += '], '
 
         ret += "u=["
         for e in self.u:
             ret += f"{e} "
+        ret = ret[:-1]
         ret += '], '
 
         ret += "r=["
         for e in self.r:
             ret += f"{e} "
+        ret = ret[:-1]
         ret += '], '
 
         ret += f"o1={self.o1}, "
@@ -92,7 +96,7 @@ class SystemState:
     def transition(self, t: float):
         """"""
         pass
-        # i = np.argmin(self.td)
+        i = np.argmin(self.td)
         # self.d[i] = label_e # the label of e ∈ E.
         # self.t[i] = np.max(self.td[i], u_ke + f_e)
         # self.u[i] = self.t[i]

@@ -9,12 +9,17 @@ matplotlib.use('TkAgg')
 
 class LocationType(Enum):
     ORE_LOAD = auto(),
-    WST_LOAD = auto(),
+    # WST_LOAD = auto(),
     CRUSHER = auto(),
-    WST_DUMP = auto(),
+    # WST_DUMP = auto(),
     STOCK_PILE = auto(),
     INTSCT = auto()
 
+
+class TransitionType(Enum):
+    TRAVELING = auto(),
+    ACTIVITY = auto(),
+    REWARDING = auto()
 
 
 class TransitionNode:
@@ -192,12 +197,12 @@ class TransitionGraph:
 
     def get_load_list(self):
         load_list = [loc for loc in self.R.nodes if
-                     loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
+                     loc.loc_type == LocationType.ORE_LOAD]#  or loc.loc_type == LocationType.WST_LOAD]
         return load_list
 
     def get_dump_list(self):
         dump_list = [loc for loc in self.R.nodes if
-                     loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
+                     loc.loc_type == LocationType.CRUSHER]  # or loc.loc_type == LocationType.WST_DUMP]
         return dump_list
 
     def init_distance_dict(self):
@@ -244,7 +249,7 @@ class TransitionGraph:
 
                     # For loadings. They have three types of nodes:
                     # (1) EMPTY, (2) LOADED*_{loc.name} and (3) LOADED_{loc.name}
-                    if loc.loc_type == LocationType.WST_DUMP or loc.loc_type == LocationType.CRUSHER:
+                    if loc.loc_type == LocationType.CRUSHER: #  or loc.loc_type == LocationType.WST_DUMP:
 
                         if is_loaded:
                             # name, x, y, loc_type, activity_time, loaded, star, loc_name):
@@ -270,7 +275,7 @@ class TransitionGraph:
 
                     # For dumpings. They have three types of nodes:
                     # (1) LOADED_{loc.name}, (2) EMPTY*_{loc.name} and (3) EMPTY
-                    if loc.loc_type == LocationType.WST_LOAD or loc.loc_type == LocationType.ORE_LOAD:
+                    if loc.loc_type == LocationType.ORE_LOAD: #  or loc.loc_type == LocationType.WST_LOAD:
                         is_loaded = True
                         loaded_loc = loc
                         state = "EMPTY"
@@ -350,11 +355,85 @@ class TransitionGraph:
                 self.G.remove_node(loc_same_name)
         return self.G
 
+    def __check_transition_type(self, node_fr, node_to):
+        if node_fr.loc_name != node_to.loc_name:
+            return TransitionType.TRAVELING
+        elif node_fr.loc_name == node_to.loc_name and node_to.star:
+            return TransitionType.ACTIVITY
+        elif node_fr.star and not node_to.star:
+            return TransitionType.REWARDING
+        else:
+            print('Unknown combination of nodes')
+            raise ValueError
+
+    def __is_activity_loading(self, node_fr, node_to):
+        if self.__check_transition_type(node_fr, node_to) == TransitionType.ACTIVITY:
+            if node_to.loaded_loc.loc_type == LocationType.ORE_LOAD: #  or node_to.loaded_loc.loc_type == LocationType.WST_LOAD:
+                return True
+        return False
+
     def __set_labels_edges(self):
+        """
+        l = duration (distance) of transition e
+        f = distance between a preceding vehicle of e
+        k = road index
+        a = reward bucket index
+        r = reward bucket
+        """
+
         label = TransitionLabel(0,0,0,0,0)
         for edge in self.G.edges:
-            loc_from = edge[0]
-            loc_to = edge[1]
+            node_from: TransitionNode = edge[0]
+            node_to: TransitionNode = edge[1]
+
+            # set duration l_e.
+            # if the transition is physical travel, travel times are used
+            # if the transition is activity, activity times are used
+            # if the transition is rewarding, duration is 0
+            transition_type = self.__check_transition_type(node_from, node_to)
+            if transition_type == TransitionType.TRAVELING:
+                if node_from.is_loaded:
+                    label.l = 40
+                    label.f = 10
+                else:
+                    label.l = 60
+                    label.f = 15
+                label.k = (node_from.loc_name, node_to.loc_name)
+                label.r = 0
+                label.a = None
+
+            elif transition_type == TransitionType.ACTIVITY:
+                if node_to.is_loaded:
+                    label.l = 120
+                    label.f = 120
+                else:
+                    label.l = 90
+                    label.f = 90
+                label.k = (node_from.loc_name, node_to.loc_name)  # same
+                label.r = 0
+                label.a = None
+
+            elif transition_type == TransitionType.REWARDING:
+                label.l = 0
+                label.f = 0
+                label.k = None
+                label.r = 1
+                if node_to.is_loaded:
+                    label.a = (node_from.loc_name, None)
+                else:
+                    label.a = (node_from.loc_name, node_to.loc_name)
+
+            # set road index k_e
+            # if the transition is physical travel, the index is the name of the edge
+            # if the transition is activity, the index is the name of the locatoin
+            # if the transition is rewarding, the index is None
+
+            # set reward bucket index a_e
+            # if the transition is rewarding, and it is loading, set (loading_loc, None)
+            # if the transition is rewarding, and it is dumping, set (loading_loc, loc)
+
+            # set reward bucket r_e
+            # if the transition is rewarding, set +1
 
             self.G.edges[edge]["transition"] = label
 
@@ -401,9 +480,9 @@ class TransitionGraph:
                                ax=axes[0])
         axes[0].set_title('Road Network')
         transition_load_list = [loc for loc in self.G.nodes if
-                                loc.loc_type == LocationType.ORE_LOAD or loc.loc_type == LocationType.WST_LOAD]
+                                loc.loc_type == LocationType.ORE_LOAD ]#  or loc.loc_type == LocationType.WST_LOAD]
         transition_dump_list = [loc for loc in self.G.nodes if
-                                loc.loc_type == LocationType.CRUSHER or loc.loc_type == LocationType.WST_DUMP]
+                                loc.loc_type == LocationType.CRUSHER ] #  or loc.loc_type == LocationType.WST_DUMP]
         transition_intsct_list = [loc for loc in self.G.nodes if
                                   loc.loc_type == LocationType.INTSCT]
         # transition_pos = nx.spring_layout(self.G)
