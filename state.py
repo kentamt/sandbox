@@ -45,13 +45,13 @@ class SystemState:
     def __init__(self, transition_graph, num_trucks, num_locations, num_pairs):
         """Constructor for """
         self.G = transition_graph
-        self.d = [0] * num_trucks  #
-        self.td = [0] * num_trucks  # Estimated time of arrival at the next node
-        self.u = [0] * num_locations
-        self.r = [0] * num_pairs
-        self.o1 = 0
-        self.o2 = 0
-        self.t = 0
+        self.d = [0] * num_trucks  # a vertex id that the i-th truck is heading to.
+        self.td = [0] * num_trucks  # an estimated time of arrival at the next node
+        self.u = [0] * num_locations # a time that the i-th truck will finish/finished its task
+        self.r = [0] * num_pairs  # total reward the i-th node has got
+        self.o1 = 0 # objective value
+        self.o2 = 0 # objective value
+        self.t = 0  # the last point in time when the objective function was updated
 
         self.o = ObjectiveFunction(0.5)
 
@@ -90,8 +90,19 @@ class SystemState:
         return ret
 
     def init(self, t: float):
-        """"""
-        pass
+        """
+        give trucks initial positions
+
+        state doesn't include the current position of each truck.
+        It only contains the destination.
+        We give their origins as destination with estimated arrival time = 0
+
+        """
+        # All vehicle start from 'A' as empty
+
+        # self.d =
+
+
 
     def transition(self, t: float):
         """"""

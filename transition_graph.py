@@ -39,10 +39,11 @@ class TransitionNode:
         self.loaded_loc = loaded_loc
 
     def __str__(self):
-        return self.name
+        return f'{self.name}'
 
     def __repr__(self):
         return self.__str__()
+
 
 class TransitionLabel:
     def __init__(self, l, f, k, a, r):
@@ -59,8 +60,10 @@ class TransitionLabel:
         self.a = None
         self.r = None
 
+
 class RoadNetwork:
     """"""
+
     def __init__(self, input_type='1'):
         """Constructor for RoadNetwork"""
         self.R = None
@@ -152,7 +155,145 @@ class TransitionGraph:
         # add transition labels
         self.__set_labels_edges()
 
-    def find_trip(self, dump, load, paths_type='shortest', weight=None):
+    def show_labels_table(self):
+        table = []
+        for edge in self.G.edges:
+            node_fr, node_to = edge
+            l = self.G.edges[edge]['transition']
+            row = [f'{node_fr.loc_name} ==> {node_to.loc_name}', l.l, l.f, l.k, l.a, l.r]
+            table.append(row)
+        print(tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
+
+    def show(self):
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+        pos = {}
+        for loc in self.R.nodes:
+            pos[loc] = loc.pos
+        dump_list = self.__get_dump_list()
+        load_list = self.__get_load_list()
+        int_list = self.__get_intersection_list()
+        nx.draw_networkx_nodes(self.R,
+                               pos=pos,
+                               nodelist=load_list,
+                               node_size=500,
+                               node_color='lightgreen',
+                               edgecolors='gray',
+                               ax=axes[0])
+        nx.draw_networkx_nodes(self.R,
+                               pos=pos,
+                               nodelist=dump_list,
+                               node_size=500,
+                               node_color='red',
+                               edgecolors='gray',
+                               ax=axes[0])
+        nx.draw_networkx_nodes(self.R,
+                               pos=pos,
+                               nodelist=int_list,
+                               node_size=500,
+                               node_color='white',
+                               edgecolors='gray',
+                               ax=axes[0])
+        nx.draw_networkx_labels(self.R,
+                                pos=pos,
+                                font_color="black",
+                                ax=axes[0])
+        nx.draw_networkx_edges(self.R,
+                               pos=pos,
+                               width=1.0,
+                               alpha=1.0,
+                               edge_color="black",
+                               arrowsize=10.0,
+                               connectionstyle='arc3, rad = 0.1',
+                               ax=axes[0])
+        axes[0].set_title('Road Network')
+        transition_load_list = [loc for loc in self.G.nodes if
+                                loc.loc_type == LocationType.ORE_LOAD]  # or loc.loc_type == LocationType.WST_LOAD]
+        transition_dump_list = [loc for loc in self.G.nodes if
+                                loc.loc_type == LocationType.CRUSHER]  # or loc.loc_type == LocationType.WST_DUMP]
+        transition_intsct_list = [loc for loc in self.G.nodes if
+                                  loc.loc_type == LocationType.INTSCT]
+
+        transition_pos = nx.kamada_kawai_layout(self.G)
+        label_pos = {}
+        for loc, pos in transition_pos.items():
+            label_pos[loc] = (pos[0], pos[1] + 0.1)
+        nx.draw_networkx_nodes(self.G,
+                               pos=transition_pos,
+                               nodelist=transition_load_list,
+                               node_color='lightgreen',
+                               edgecolors='gray',
+                               node_size=200,
+                               ax=axes[1])
+        nx.draw_networkx_nodes(self.G,
+                               pos=transition_pos,
+                               nodelist=transition_dump_list,
+                               node_color='red',
+                               edgecolors='gray',
+                               node_size=200,
+                               ax=axes[1])
+        nx.draw_networkx_nodes(self.G,
+                               pos=transition_pos,
+                               nodelist=transition_intsct_list,
+                               node_color='white',
+                               edgecolors='gray',
+                               node_size=200,
+                               ax=axes[1])
+        nx.draw_networkx_edges(self.G,
+                               pos=transition_pos,
+                               arrowstyle='->',
+                               arrowsize=20,
+                               edge_color='black',
+                               ax=axes[1])
+        nx.draw_networkx_labels(self.G,
+                                pos=label_pos,
+                                font_color="black",
+                                font_size=8,
+                                ax=axes[1])
+        axes[1].set_title('Transition Graph')
+        plt.axis('equal')
+        plt.show()
+
+    def get_loc_names(self, loc_type=None):
+        """
+        TODO: now there are only two discrete states: EMPTY and LOAD,
+        TODO: which are corresponding to CRUSHER and LOADING locations.
+        TODO: in the future, three discrete states: EMPTY, ORE and WASTE should be used.
+        """
+
+        ret: list[str] = []
+        node: TransitionNode
+        if loc_type is None:
+            for node in self.R.nodes:
+                    ret.append(node.loc_name)
+
+        elif loc_type == 'loading':
+            for node in self.R.nodes:
+                if node.loc_type == LocationType.ORE_LOAD:
+                    ret.append(node.loc_name)
+
+        elif loc_type == 'dumping':
+            for node in self.R.nodes:
+                if node.loc_type == LocationType.CRUSHER:
+                    ret.append(node.loc_name)
+
+        elif loc_type == 'intersection':
+            for node in self.R.nodes:
+                if node.loc_type == LocationType.INTSCT:
+                    ret.append(node.loc_name)
+
+        return ret
+
+    def find_node(self, loc_name: str, is_loaded: bool, star: bool):
+
+        node: TransitionNode
+        for node in self.G.nodes:
+            if node.loc_name == loc_name and node.is_loaded == is_loaded and node.star == star:
+                return node
+
+        return None
+
+    # private methods
+    def __find_trip(self, dump, load, paths_type='shortest', weight=None):
 
         ret = []
         if paths_type == 'shortest':
@@ -172,9 +313,9 @@ class TransitionGraph:
 
         return ret
 
-    def get_cycle_path_list(self, cycle_path_list, dump, load):
-        outward_paths = self.find_trip(dump, load, paths_type='all_simple')
-        return_paths = self.find_trip(load, dump, paths_type='all_simple')
+    def __get_cycle_path_list(self, cycle_path_list, dump, load):
+        outward_paths = self.__find_trip(dump, load, paths_type='all_simple')
+        return_paths = self.__find_trip(load, dump, paths_type='all_simple')
         for outward_path in outward_paths:
             for return_path in return_paths:
                 cycle_path: list[TransitionNode] = []
@@ -184,7 +325,7 @@ class TransitionGraph:
                 cycle_path_list.append(cycle_path)
         return cycle_path_list
 
-    def find_dupulicated_locs(self):
+    def __find_duplicated_locs(self):
         duplicated_locs = []
         visited_id = []
         for loc1 in self.G.nodes:
@@ -197,26 +338,25 @@ class TransitionGraph:
                     duplicated_locs.append(loc1)
         return duplicated_locs
 
-    def get_intersection_list(self):
+    def __get_intersection_list(self):
         int_list = [loc for loc in self.R.nodes if loc.loc_type == LocationType.INTSCT]
         return int_list
 
-    def get_load_list(self):
+    def __get_load_list(self):
         load_list = [loc for loc in self.R.nodes if
-                     loc.loc_type == LocationType.ORE_LOAD]#  or loc.loc_type == LocationType.WST_LOAD]
+                     loc.loc_type == LocationType.ORE_LOAD]  # or loc.loc_type == LocationType.WST_LOAD]
         return load_list
 
-    def get_dump_list(self):
+    def __get_dump_list(self):
         dump_list = [loc for loc in self.R.nodes if
                      loc.loc_type == LocationType.CRUSHER]  # or loc.loc_type == LocationType.WST_DUMP]
         return dump_list
 
-    def init_distance_dict(self):
+    def __init_distance_dict(self):
         """
         init physical distances (duration) according to the road network
         :return:
         """
-
 
         for edge in self.R.edges:
             loc_fr: TransitionNode = edge[0]
@@ -230,18 +370,17 @@ class TransitionGraph:
                     travel_time = edge['EMPTY_TRAVEL_TIME']
                 self.distance_dict[loc_fr.loc_name][loc_to.loc_name] = travel_time
 
-
     def __build(self):
 
         self.G = nx.DiGraph()
-        dump_list = self.get_dump_list()
-        load_list = self.get_load_list()
+        dump_list = self.__get_dump_list()
+        load_list = self.__get_load_list()
 
         # search for cycles from dumping point to loading point
         for dump in dump_list:
             cycle_path_list = []
             for load in load_list:
-                cycle_path_list = self.get_cycle_path_list(cycle_path_list, dump, load)
+                cycle_path_list = self.__get_cycle_path_list(cycle_path_list, dump, load)
 
             for cycle_path in cycle_path_list:
 
@@ -255,7 +394,7 @@ class TransitionGraph:
 
                     # For loadings. They have three types of nodes:
                     # (1) EMPTY, (2) LOADED*_{loc.name} and (3) LOADED_{loc.name}
-                    if loc.loc_type == LocationType.CRUSHER: #  or loc.loc_type == LocationType.WST_DUMP:
+                    if loc.loc_type == LocationType.CRUSHER:  # or loc.loc_type == LocationType.WST_DUMP:
 
                         if is_loaded:
                             # name, x, y, loc_type, activity_time, loaded, star, loc_name):
@@ -281,7 +420,7 @@ class TransitionGraph:
 
                     # For dumpings. They have three types of nodes:
                     # (1) LOADED_{loc.name}, (2) EMPTY*_{loc.name} and (3) EMPTY
-                    if loc.loc_type == LocationType.ORE_LOAD: #  or loc.loc_type == LocationType.WST_LOAD:
+                    if loc.loc_type == LocationType.ORE_LOAD:  # or loc.loc_type == LocationType.WST_LOAD:
                         is_loaded = True
                         loaded_loc = loc
                         state = "EMPTY"
@@ -330,7 +469,7 @@ class TransitionGraph:
                         p_loc = transition_cycle[idx - 1]
                     self.G.add_edge(p_loc, loc)
         # Find nodes which have the same names
-        duplicated_locs = self.find_dupulicated_locs()
+        duplicated_locs = self.__find_duplicated_locs()
         # Delete and reconnect nodes
         for loc in duplicated_locs:
 
@@ -374,7 +513,7 @@ class TransitionGraph:
 
     def __is_activity_loading(self, node_fr, node_to):
         if self.__check_transition_type(node_fr, node_to) == TransitionType.ACTIVITY:
-            if node_to.loaded_loc.loc_type == LocationType.ORE_LOAD: #  or node_to.loaded_loc.loc_type == LocationType.WST_LOAD:
+            if node_to.loaded_loc.loc_type == LocationType.ORE_LOAD:  # or node_to.loaded_loc.loc_type == LocationType.WST_LOAD:
                 return True
         return False
 
@@ -386,7 +525,6 @@ class TransitionGraph:
         a = reward bucket index
         r = reward bucket
         """
-
 
         for edge in self.G.edges:
             label = TransitionLabel(0, 0, 0, 0, 0)
@@ -428,104 +566,6 @@ class TransitionGraph:
 
             self.G.edges[edge]["transition"] = label
 
-    def show_labels_table(self):
-        table = []
-        for edge in self.G.edges:
-            node_fr, node_to = edge
-            l = self.G.edges[edge]['transition']
-            row = [f'{node_fr.loc_name} ==> {node_to.loc_name}', l.l, l.f, l.k, l.a, l.r]
-            table.append(row)
-        print(tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
-
-    def show(self):
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        pos = {}
-        for loc in self.R.nodes:
-            pos[loc] = loc.pos
-        dump_list = self.get_dump_list()
-        load_list = self.get_load_list()
-        int_list = self.get_intersection_list()
-        nx.draw_networkx_nodes(self.R,
-                               pos=pos,
-                               nodelist=load_list,
-                               node_size=500,
-                               node_color='lightgreen',
-                               edgecolors='gray',
-                               ax=axes[0])
-        nx.draw_networkx_nodes(self.R,
-                               pos=pos,
-                               nodelist=dump_list,
-                               node_size=500,
-                               node_color='red',
-                               edgecolors='gray',
-                               ax=axes[0])
-        nx.draw_networkx_nodes(self.R,
-                               pos=pos,
-                               nodelist=int_list,
-                               node_size=500,
-                               node_color='white',
-                               edgecolors='gray',
-                               ax=axes[0])
-        nx.draw_networkx_labels(self.R,
-                                pos=pos,
-                                font_color="black",
-                                ax=axes[0])
-        nx.draw_networkx_edges(self.R,
-                               pos=pos,
-                               width=1.0,
-                               alpha=1.0,
-                               edge_color="black",
-                               arrowsize=10.0,
-                               connectionstyle='arc3, rad = 0.1',
-                               ax=axes[0])
-        axes[0].set_title('Road Network')
-        transition_load_list = [loc for loc in self.G.nodes if
-                                loc.loc_type == LocationType.ORE_LOAD ]#  or loc.loc_type == LocationType.WST_LOAD]
-        transition_dump_list = [loc for loc in self.G.nodes if
-                                loc.loc_type == LocationType.CRUSHER ] #  or loc.loc_type == LocationType.WST_DUMP]
-        transition_intsct_list = [loc for loc in self.G.nodes if
-                                  loc.loc_type == LocationType.INTSCT]
-
-        transition_pos = nx.kamada_kawai_layout(self.G)
-        label_pos = {}
-        for loc, pos in transition_pos.items():
-            label_pos[loc] = (pos[0], pos[1] + 0.1)
-        nx.draw_networkx_nodes(self.G,
-                               pos=transition_pos,
-                               nodelist=transition_load_list,
-                               node_color='lightgreen',
-                               edgecolors='gray',
-                               node_size=200,
-                               ax=axes[1])
-        nx.draw_networkx_nodes(self.G,
-                               pos=transition_pos,
-                               nodelist=transition_dump_list,
-                               node_color='red',
-                               edgecolors='gray',
-                               node_size=200,
-                               ax=axes[1])
-        nx.draw_networkx_nodes(self.G,
-                               pos=transition_pos,
-                               nodelist=transition_intsct_list,
-                               node_color='white',
-                               edgecolors='gray',
-                               node_size=200,
-                               ax=axes[1])
-        nx.draw_networkx_edges(self.G,
-                               pos=transition_pos,
-                               arrowstyle='->',
-                               arrowsize=20,
-                               edge_color='black',
-                               ax=axes[1])
-        nx.draw_networkx_labels(self.G,
-                                pos=label_pos,
-                                font_color="black",
-                                font_size=8,
-                                ax=axes[1])
-        axes[1].set_title('Transition Graph')
-        plt.axis('equal')
-        plt.show()
-
 
 def main():
     input_type = sys.argv[1]
@@ -537,6 +577,21 @@ def main():
     transition_graph = TransitionGraph(road_network.R)
     transition_graph.show()
     transition_graph.show_labels_table()
+
+    # Pick up node
+    print(transition_graph.find_node("A", False, False))
+    print(transition_graph.find_node("A", False, True))
+    print(transition_graph.find_node("A", True, True))
+    print(transition_graph.find_node("C", True, True))
+
+    # Pick up node at random
+    # Find loading node
+
+    print(transition_graph.get_loc_names())
+    print(transition_graph.get_loc_names(loc_type='loading'))
+    print(transition_graph.get_loc_names(loc_type='dumping'))
+    print(transition_graph.get_loc_names(loc_type='intersection'))
+
 
 if __name__ == '__main__':
     main()
