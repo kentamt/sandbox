@@ -1,5 +1,10 @@
+from typing import Optional
+import random
+random.seed(1)
 import numpy as np
-from transition_graph import RoadNetwork, TransitionGraph
+from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel
+
+from logger import *
 
 class ObjectiveFunction():
     """"""
@@ -42,11 +47,11 @@ class GoalFunction():
 class SystemState:
     """"""
 
-    def __init__(self, transition_graph, num_trucks, num_locations, num_pairs):
+    def __init__(self, transition_graph, num_vehicles, num_locations, num_pairs):
         """Constructor for """
-        self.G = transition_graph
-        self.d = [0] * num_trucks  # a vertex id that the i-th truck is heading to.
-        self.td = [0] * num_trucks  # an estimated time of arrival at the next node
+        self.trans_graph: TransitionGraph = transition_graph
+        self.d: list[Optional[TransitionNode]]= [None] * num_vehicles  # a vertex id that the i-th truck is heading to.
+        self.td = [0] * num_vehicles  # an estimated time of arrival at the next node
         self.u = [0] * num_locations # a time that the i-th truck will finish/finished its task
         self.r = [0] * num_pairs  # total reward the i-th node has got
         self.o1 = 0 # objective value
@@ -56,35 +61,33 @@ class SystemState:
         self.o = ObjectiveFunction(0.5)
 
     def __str__(self):
-        ret = ""
-
+        ret = f"t={self.t},\t"
         ret += "d=["
         for e in self.d:
             ret += f"{e} "
         ret = ret[:-1]
-        ret += '], '
+        ret += ']\t, '
 
         ret += "td=["
         for e in self.td:
             ret += f"{e} "
         ret = ret[:-1]
-        ret += '], '
+        ret += '],\t'
 
         ret += "u=["
         for e in self.u:
             ret += f"{e} "
         ret = ret[:-1]
-        ret += '], '
+        ret += '],\t'
 
         ret += "r=["
         for e in self.r:
             ret += f"{e} "
         ret = ret[:-1]
-        ret += '], '
+        ret += '],\t'
 
-        ret += f"o1={self.o1}, "
-        ret += f"o2={self.o2}, "
-        ret += f"t={self.t}, "
+        ret += f"o1={self.o1},\t"
+        ret += f"o2={self.o2},\t"
 
 
         return ret
@@ -98,23 +101,47 @@ class SystemState:
         We give their origins as destination with estimated arrival time = 0
 
         """
+        # DEBUG:
         # All vehicle start from 'A' as empty
+        import random
+        random.seed(1)
+        dumping_locs = self.trans_graph.get_loc_names(loc_type='dumping')
+        dumping_nodes = [self.trans_graph.find_node(loc, False, False) for loc in dumping_locs]
 
-        # self.d =
+        for idx, _ in enumerate(self.d):
+            org_node = random.choice(dumping_nodes)
+            self.d[idx] = org_node
+            self.td[idx] = 0  # all trucks arrive at the org_nodes at 0:00
 
 
-
-    def transition(self, t: float):
+    def transition(self, dt: float):
         """"""
-        pass
+
+        # Find the fastest truck that arrives at its destination
         i = np.argmin(self.td)
-        # self.d[i] = label_e # the label of e ∈ E.
-        # self.t[i] = np.max(self.td[i], u_ke + f_e)
-        # self.u[i] = self.t[i]
+
+        # The simulation time equals the time when the truck arrives.
+        self.t = self.td[i]
+
+        # Find the next action
+        neighbors: list[TransitionNode] = list(self.trans_graph.G.neighbors(self.d[i])) # FIXME: it should be wrapped.
+        node_to: TransitionNode = random.choice(neighbors)
+        node_fr: TransitionNode = self.d[i]
+        trans_e: TransitionLabel = self.trans_graph.G.edges[(node_fr, node_to)]['transition']
+        print(trans_e)
+
+        self.d[i] = node_to
+        f_e = trans_e.f
+        u_ke = 0
+        self.td[i] = max(self.td[i], u_ke + f_e)
+        self.u[i] = self.td[i]
+        r_e = 1.0
         # self.r[i] = self.r[i] + r_e
-        # self.o1 = self.o(t)
-        # self.o2 = self.o2 + self.o.xi ** 1.0/ dt
-        self.t = t
+        self.o1 = self.o.update(self.t)
+        self.o2 = self.o2 + self.o.xi ** 1.0 / dt
+
+
+
 
     def evaluate(self):
         """"""
@@ -122,7 +149,7 @@ class SystemState:
 
     def show(self):
         """"""
-        print(self)
+        logger.info(self)
 
 def main():
     road_network = RoadNetwork('1')
@@ -138,7 +165,7 @@ def main():
 
     s.init(t)
     for _ in range(10):
-        s.transition(t)
+        s.transition(dt)
         s.show()
         t += dt
 
@@ -146,4 +173,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    print('EOP')
+    logger.info('EOP')

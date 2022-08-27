@@ -60,6 +60,8 @@ class TransitionLabel:
         self.a = None
         self.r = None
 
+    def __str__(self):
+        return f'[l={self.l}, f={self.f}, k={self.k}, a={self.a}, r={self.r}]'
 
 class RoadNetwork:
     """"""
@@ -591,6 +593,10 @@ def main():
     print(transition_graph.get_loc_names(loc_type='loading'))
     print(transition_graph.get_loc_names(loc_type='dumping'))
     print(transition_graph.get_loc_names(loc_type='intersection'))
+
+
+
+
 
 
 if __name__ == '__main__':
