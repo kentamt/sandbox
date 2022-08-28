@@ -1,10 +1,12 @@
 from typing import Optional
 import random
+
 random.seed(1)
 import numpy as np
-from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel
+from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel, TransitionType, LocationType
 
 from logger import *
+
 
 class ObjectiveFunction():
     """"""
@@ -23,9 +25,10 @@ class ObjectiveFunction():
     @staticmethod
     def e(x):
         if x <= 0:
-            return 1.0/4.0 - (x - 1.0/2.0)**2
+            return 1.0 / 4.0 - (x - 1.0 / 2.0) ** 2
         else:
-            return np.sqrt(x + 1.0 / 4.0) - 1.0/2.0
+            return np.sqrt(x + 1.0 / 4.0) - 1.0 / 2.0
+
 
 class GoalFunction():
     """
@@ -47,48 +50,81 @@ class GoalFunction():
 class SystemState:
     """"""
 
-    def __init__(self, transition_graph, num_vehicles, num_locations, num_pairs):
-        """Constructor for """
-        self.trans_graph: TransitionGraph = transition_graph
-        self.d: list[Optional[TransitionNode]]= [None] * num_vehicles  # a vertex id that the i-th truck is heading to.
-        self.td = [0] * num_vehicles  # an estimated time of arrival at the next node
-        self.u = [0] * num_locations # a time that the i-th truck will finish/finished its task
-        self.r = [0] * num_pairs  # total reward the i-th node has got
-        self.o1 = 0 # objective value
-        self.o2 = 0 # objective value
-        self.t = 0  # the last point in time when the objective function was updated
+    def __init__(self, transition_graph, num_vehicles):
+        """Constructor for SystemStete"""
 
+        self.trans_graph: TransitionGraph = transition_graph
         self.o = ObjectiveFunction(0.5)
 
+        # prams
+        # TODO: is it determined by material types?
+        self._r_for_loading = 1.0
+        self._r_for_dumping = 1.0
+
+        # state
+        self.d: list[Optional[TransitionNode]] = [None] * num_vehicles   # vertex id that the i-th truck is heading to
+        self.td: list[float] = [0] * num_vehicles                        # estimated time of arrival at the next node
+        self.u: dict[TransitionNode] = self.__init_u_ke()                # FIXME: is it good to have it as a dict?
+        self.r: dict[(TransitionNode, TransitionNode)] = self.__init_r()  # total reward the i-th node has got
+        self.o1: float = 0  # objective value
+        self.o2: float = 0  # objective value
+        self.t: float = 0  # the last point in time when the objective function was updated
+
+
+
+
+
+
+    def __init_u_ke(self):
+        ret = dict()
+        for node in self.trans_graph.G.nodes:
+            ret[node] = 0.0
+
+        return ret
+
+    def __init_r(self):
+        ret = dict()
+        for edge in self.trans_graph.G.edges:
+            node_fr: TransitionNode = edge[0]
+            node_to: TransitionNode = edge[1]
+            if node_fr.star:
+                ret[edge] = self._r_for_loading
+            elif node_to.star:
+                ret[edge] = self._r_for_dumping
+            else:
+                ret[edge] = 0.0
+        return ret
+
     def __str__(self):
-        ret = f"t={self.t},\t"
+        ret = f"t={self.t},\n"
         ret += "d=["
         for e in self.d:
             ret += f"{e} "
         ret = ret[:-1]
-        ret += ']\t, '
+        ret += '], \n'
 
         ret += "td=["
         for e in self.td:
             ret += f"{e} "
         ret = ret[:-1]
-        ret += '],\t'
+        ret += '],\n'
 
         ret += "u=["
         for e in self.u:
-            ret += f"{e} "
+            if self.u[e] != 0:
+                ret += f"{e}: {self.u[e]} "
         ret = ret[:-1]
-        ret += '],\t'
+        ret += '],\n'
 
         ret += "r=["
         for e in self.r:
-            ret += f"{e} "
+            if self.r[e] != 0:
+                ret += f"{e}: {self.r[e]} "
         ret = ret[:-1]
-        ret += '],\t'
+        ret += '],\n'
 
-        ret += f"o1={self.o1},\t"
-        ret += f"o2={self.o2},\t"
-
+        ret += f"o1={self.o1},\n"
+        ret += f"o2={self.o2},\n"
 
         return ret
 
@@ -113,35 +149,32 @@ class SystemState:
             self.d[idx] = org_node
             self.td[idx] = 0  # all trucks arrive at the org_nodes at 0:00
 
-
     def transition(self, dt: float):
         """"""
 
         # Find the fastest truck that arrives at its destination
         i = np.argmin(self.td)
+        logger.debug(f'Vehicle ID = {i}')
 
         # The simulation time equals the time when the truck arrives.
         self.t = self.td[i]
 
         # Find the next action
-        neighbors: list[TransitionNode] = list(self.trans_graph.G.neighbors(self.d[i])) # FIXME: it should be wrapped.
+        neighbors: list[TransitionNode] = list(self.trans_graph.G.neighbors(self.d[i]))  # FIXME: it should be wrapped.
         node_to: TransitionNode = random.choice(neighbors)
         node_fr: TransitionNode = self.d[i]
         trans_e: TransitionLabel = self.trans_graph.G.edges[(node_fr, node_to)]['transition']
-        print(trans_e)
+        logger.debug(trans_e)
+        l_e = trans_e.l
+        f_e = trans_e.f
+        r_e = trans_e.r
 
         self.d[i] = node_to
-        f_e = trans_e.f
-        u_ke = 0
-        self.td[i] = max(self.td[i], u_ke + f_e)
-        self.u[i] = self.td[i]
-        r_e = 1.0
-        # self.r[i] = self.r[i] + r_e
+        self.td[i] = max(self.td[i] + l_e, self.u[node_fr] + f_e)
+        self.u[node_fr] = self.td[i]         # FIXME: check if node_fr is correct
+        self.r[(node_fr, node_to)] += r_e    # FIXME: check if node_fr is correct
         self.o1 = self.o.update(self.t)
         self.o2 = self.o2 + self.o.xi ** 1.0 / dt
-
-
-
 
     def evaluate(self):
         """"""
@@ -149,27 +182,29 @@ class SystemState:
 
     def show(self):
         """"""
-        logger.info(self)
+        logger.debug(self)
+
 
 def main():
     road_network = RoadNetwork('1')
     transition_graph = TransitionGraph(road_network.R)
 
     n = 3
-    m = 5
-    p = 2  # the number of load-unload pair
-    s = SystemState(transition_graph, n, m, p)
+    # m = 5
+    # p = 2  # the number of load-unload pair
+    s = SystemState(transition_graph, n)
 
     t = 0  # [sec]
     dt = 5.0  # [sec]
 
     s.init(t)
-    for _ in range(10):
+    for _ in range(20):
         s.transition(dt)
         s.show()
         t += dt
 
     s.evaluate()
+
 
 if __name__ == '__main__':
     main()

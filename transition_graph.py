@@ -38,6 +38,9 @@ class TransitionNode:
         self.is_loaded = is_loaded
         self.loaded_loc = loaded_loc
 
+        # TODO: to be named as NodeLabels?
+        self.u_ke = None
+
     def __str__(self):
         return f'{self.name}'
 
@@ -536,11 +539,11 @@ class TransitionGraph:
 
             if transition_type == TransitionType.TRAVELING:
                 if node_from.is_loaded:
-                    label.l = 40
-                    label.f = 10
-                else:
                     label.l = 60
                     label.f = 15
+                else:
+                    label.l = 40
+                    label.f = 10
                 label.k = (node_from.loc_name, node_to.loc_name)
                 label.r = 0
                 label.a = None
