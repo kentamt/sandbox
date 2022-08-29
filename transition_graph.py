@@ -224,7 +224,7 @@ class TransitionGraph:
             table.append(row)
         print(tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
 
-    def show(self):
+    def draw(self):
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
         pos = {}
         for loc in self.R.nodes:
@@ -325,7 +325,16 @@ class TransitionGraph:
                                 ax=axes[1])
         axes[1].set_title('Transition Graph')
         plt.axis('equal')
+        # plt.show()
+
+        return fig, axes
+
+    @staticmethod
+    def show():
         plt.show()
+
+    def get_neighbors(self, node: TransitionNode) -> list[TransitionNode]:
+        return list(self.G.neighbors(node))
 
     def get_loc_names(self, loc_type=None):
         """
@@ -662,8 +671,9 @@ def main():
 
     # Transition graph
     transition_graph = TransitionGraph(road_network.R)
-    transition_graph.show()
     transition_graph.show_labels_table()
+    transition_graph.draw()
+    plt.show()
 
     # Pick up node
     print(transition_graph.find_node("A", False, False))

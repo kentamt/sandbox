@@ -1,6 +1,8 @@
 from typing import Optional
 import random
 
+import matplotlib.pyplot as plt
+
 random.seed(1)
 
 import numpy as np
@@ -14,10 +16,10 @@ class SystemState:
     """"""
 
     def __init__(self, transition_graph, num_vehicles):
-        """Constructor for SystemStete"""
+        """Constructor for SystemState"""
 
+        # objects
         self.trans_graph: TransitionGraph = transition_graph
-
         self.o = ObjectiveFunction(transition_graph)
 
         # prams
@@ -33,6 +35,14 @@ class SystemState:
         self.o1: float = 0  # objective value
         self.o2: float = 0  # objective value
         self.t: float = 0  # the last point in time when the objective function was updated
+
+
+        # just for debug
+        self.vehicle_x = [None] * num_vehicles
+        self.vehicle_y = [None] * num_vehicles
+        self.vehicle_nx = [None] * num_vehicles
+        self.vehicle_ny = [None] * num_vehicles
+        self.vehicle_u = [0] * num_vehicles
 
     def __init_u_ke(self):
         ret = dict()
@@ -81,7 +91,7 @@ class SystemState:
         for e in self.r:
             if self.r[e] != 0:
                 ret += f"{e}: {self.r[e]} "
-        ret = ret[:-1]
+        # ret = ret[:-1]
         ret += '],\n'
 
         ret += f"o1={self.o1},\n"
@@ -118,17 +128,15 @@ class SystemState:
         a2: unloading node
         """
         reward_bucket = None
-        if a2 is None:
-            for edge in self.r.keys():
-                node_fr: TransitionNode = edge[0]
-                node_to: TransitionNode = edge[1]
+        for edge in self.r.keys():
+            node_fr: TransitionNode = edge[0]
+            node_to: TransitionNode = edge[1]
+
+            if a2 is None:
                 if node_fr.loaded_loc is not None:
                     if node_fr.loaded_loc.loc_name == a1 and node_to.loc_name == a1 and node_fr.loc_name == a1 and node_fr.star:
                         reward_bucket = self.r[edge]
-        else:
-            for edge in self.r.keys():
-                node_fr: TransitionNode = edge[0]
-                node_to: TransitionNode = edge[1]
+            else:
                 if node_fr.loaded_loc is not None:
                     if node_fr.loaded_loc.loc_name == a1 and node_to.loc_name == a2 and node_fr.loc_name == a2 and node_fr.star:
                         reward_bucket = self.r[edge]
@@ -147,27 +155,42 @@ class SystemState:
         dt = new_t - self.t
         self.t = new_t
 
+        # just for debug ---------------------------------
+        # self.vehicle_x[i] = self.d[i].pos[0]
+        # self.vehicle_y[i] = self.d[i].pos[1]
+        # -------------------------------------------------
+
         # Find the next action
-        neighbors: list[TransitionNode] = list(self.trans_graph.G.neighbors(self.d[i]))  # FIXME: it should be wrapped.
+        # FIXME: at the moment, the next node is randomly selected.
+        neighbors: list[TransitionNode] = self.trans_graph.get_neighbors(self.d[i])
         node_to: TransitionNode = random.choice(neighbors)
         node_fr: TransitionNode = self.d[i]
         trans_e: TransitionLabel = self.trans_graph.G.edges[(node_fr, node_to)]['transition']
-        logger.debug(trans_e)
         l_e = trans_e.l
         f_e = trans_e.f
         r_e = trans_e.r
-        a_e = trans_e.a
 
         self.d[i] = node_to
         self.td[i] = max(self.td[i] + l_e, self.u[node_fr] + f_e)
-        self.u[node_fr] = self.td[i]  # FIXME: check if node_fr is correct
-        self.r[(node_fr, node_to)] += r_e  # FIXME: check if node_fr is correct
+        self.u[node_fr] = self.td[i]  # TODO: check if node_fr is correct
+        self.r[(node_fr, node_to)] += r_e  # TODO: check if node_fr is correct
+
         new_o1 = self.o.o(self, self.t)
         if dt != 0:
             self.o2 = self.o2 + self.o.xi ** (1.0 / dt) * (new_o1 - self.o1)
         else:
-            pass  # TODO:  check if this is expected behaivior
+            pass  # TODO:  check if this is expected behavior
         self.o1 = new_o1
+
+        # just for debug ---------------------------------
+        # self.vehicle_nx[i] = self.d[i].pos[0]
+        # self.vehicle_ny[i] = self.d[i].pos[1]
+        # self.vehicle_u[i] = self.td[i]
+        # self.vehicle_x[i] += (self.vehicle_nx[i] - self.vehicle_x[i])/10.
+        # self.vehicle_y[i] += (self.vehicle_ny[i] - self.vehicle_y[i])/10.
+
+        # -------------------------------------------------
+
 
     def evaluate(self):
         """"""
@@ -177,17 +200,30 @@ class SystemState:
         """"""
         logger.debug(self)
 
+        # fig, axes = self.trans_graph.draw()
+        # node: TransitionNode
+        # x_list, y_list = [], []
+        # for x, y, nx, ny, u in zip(self.vehicle_x, self.vehicle_y,
+        #                            self.vehicle_nx, self.vehicle_ny,
+        #                            self.vehicle_u):
+        #     if x is not None:
+        #         # x_list.append(x)
+        #         # y_list.append(y)
+        #         axes[0].scatter(x, y, s=100, zorder=3)
+        # self.trans_graph.show()
+        #
 
 def main():
-    road_network = RoadNetwork('4')
+    road_network = RoadNetwork('5')
     transition_graph = TransitionGraph(road_network.R)
 
-    n = 4
+    n = 3
     s = SystemState(transition_graph, n)
 
     t = 0  # [sec]
     s.init(t)
-    for _ in range(200):
+    n_step = 100
+    for _ in range(n_step):
         s.transition()
         s.show()
     s.evaluate()

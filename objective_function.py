@@ -28,16 +28,16 @@ class ObjectiveFunction:
             f_a1_a2 = self.f(state, a1, a2, t)
             g_a1_a2 = self.g(a1, a2, t)
             o_sum_a1_a2 += self.e(f_a1_a2 - g_a1_a2)
-            logger.debug(f'f(({a1}, {a2}), {t}) = {f_a1_a2}')
-            logger.debug(f'g(({a1}, {a2}), {t}) = {g_a1_a2}')
+            # logger.debug(f'f(({a1}, {a2}), {t}) = {f_a1_a2}')
+            # logger.debug(f'g(({a1}, {a2}), {t}) = {g_a1_a2}')
 
         o_sum_a1 = 0
         for (a1, _) in self.mine_plan.keys():
             f_a1 = self.f(state, a1, None, t)
             g_a1 = self.g(a1, None, t)
             o_sum_a1 += self.e(f_a1 - g_a1)
-            logger.debug(f'f(({a1}, .), {t}) = {f_a1}')
-            logger.debug(f'g(({a1}, .), {t}) = {g_a1}')
+            # logger.debug(f'f(({a1}, .), {t}) = {f_a1}')
+            # logger.debug(f'g(({a1}, .), {t}) = {g_a1}')
 
         return o_sum_a1_a2 + o_sum_a1
 
