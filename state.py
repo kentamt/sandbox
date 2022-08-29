@@ -15,8 +15,13 @@ from logger import *
 class SystemState:
     """"""
 
-    def __init__(self, transition_graph, num_vehicles):
+    def __init__(self, transition_graph, num_vehicles, t_s, t_e):
         """Constructor for SystemState"""
+
+        # simulation time
+        self.t_s = t_s  # [sec]
+        self.t_e = t_e  # [sec]
+        self.sim_time = t_s  # [sec]
 
         # objects
         self.trans_graph: TransitionGraph = transition_graph
@@ -34,15 +39,7 @@ class SystemState:
         self.r: dict[(TransitionNode, TransitionNode)] = self.__init_r()  # total reward the i-th node has got
         self.o1: float = 0  # objective value
         self.o2: float = 0  # objective value
-        self.t: float = 0  # the last point in time when the objective function was updated
-
-
-        # just for debug
-        self.vehicle_x = [None] * num_vehicles
-        self.vehicle_y = [None] * num_vehicles
-        self.vehicle_nx = [None] * num_vehicles
-        self.vehicle_ny = [None] * num_vehicles
-        self.vehicle_u = [0] * num_vehicles
+        self.t: float = t_s  # the last point in time when the objective function was updated
 
     def __init_u_ke(self):
         ret = dict()
@@ -99,7 +96,10 @@ class SystemState:
 
         return ret
 
-    def init(self, t: float):
+    def get_objective(self):
+        return self.o2
+
+    def init(self):
         """
         give trucks initial positions
 
@@ -118,7 +118,7 @@ class SystemState:
         for idx, _ in enumerate(self.d):
             org_node = random.choice(dumping_nodes)
             self.d[idx] = org_node
-            self.td[idx] = 0  # all trucks arrive at the org_nodes at 0:00
+            self.td[idx] = self.t_s  # [sec]
 
     def get_reward_bucket(self,
                           a1: str,  # TransitionNode,
@@ -145,20 +145,17 @@ class SystemState:
 
     def transition(self):
         """"""
+        if self.sim_time > self.t_e:
+            return
 
         # Find the fastest truck that arrives at its destination
         i = np.argmin(self.td)
-        logger.debug(f'Vehicle ID = {i}')
 
         # The simulation time equals the time when the truck arrives.
         new_t = self.td[i]
         dt = new_t - self.t
         self.t = new_t
-
-        # just for debug ---------------------------------
-        # self.vehicle_x[i] = self.d[i].pos[0]
-        # self.vehicle_y[i] = self.d[i].pos[1]
-        # -------------------------------------------------
+        self.sim_time += dt  # [sec]  # FIXME: to organise these lines
 
         # Find the next action
         # FIXME: at the moment, the next node is randomly selected.
@@ -182,16 +179,6 @@ class SystemState:
             pass  # TODO:  check if this is expected behavior
         self.o1 = new_o1
 
-        # just for debug ---------------------------------
-        # self.vehicle_nx[i] = self.d[i].pos[0]
-        # self.vehicle_ny[i] = self.d[i].pos[1]
-        # self.vehicle_u[i] = self.td[i]
-        # self.vehicle_x[i] += (self.vehicle_nx[i] - self.vehicle_x[i])/10.
-        # self.vehicle_y[i] += (self.vehicle_ny[i] - self.vehicle_y[i])/10.
-
-        # -------------------------------------------------
-
-
     def evaluate(self):
         """"""
         pass
@@ -213,21 +200,27 @@ class SystemState:
         # self.trans_graph.show()
         #
 
+
 def main():
-    road_network = RoadNetwork('5')
+    road_network = RoadNetwork('4')
     transition_graph = TransitionGraph(road_network.R)
+    transition_graph.show_labels_table()
+    transition_graph.draw()
+    transition_graph.show()
 
     n = 3
-    s = SystemState(transition_graph, n)
+    t_s = 0  # [sec]
+    t_e = 200.0 * 60.0  # [sec]
+    s = SystemState(transition_graph, n, t_s, t_e)
 
-    t = 0  # [sec]
-    s.init(t)
-    n_step = 100
-    for _ in range(n_step):
+    s.init()
+    while True:
         s.transition()
-        s.show()
-    s.evaluate()
+        # s.show()
+        if s.sim_time > s.t_e:
+            break
 
+    logger.info(f'Score = {s.get_objective():4.3}')
 
 if __name__ == '__main__':
     main()

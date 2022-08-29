@@ -222,7 +222,7 @@ class TransitionGraph:
             l = self.G.edges[edge]['transition']
             row = [f'{node_fr.loc_name} ==> {node_to.loc_name}', l.l, l.f, l.k, l.a, l.r]
             table.append(row)
-        print(tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
+        logger.info('\n' + tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
 
     def draw(self):
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -472,12 +472,6 @@ class TransitionGraph:
             dump_list = self.__get_dump_list(dump_type)
             load_list = self.__get_load_list(load_type)
 
-            print(dump_type)
-            print(f'{dump_list=}')
-            print(load_type)
-            print(f'{load_list=}')
-            # exit()
-
             # search for cycles from dumping point to loading point
             for dump in dump_list:
                 cycle_path_list = []
@@ -561,7 +555,7 @@ class TransitionGraph:
                                                          is_loaded=False, loaded_loc=loaded_loc)
                             transition_cycle.append(new_loc)
 
-                    logger.debug(f'{transition_cycle=}')
+                    # logger.debug(f'{transition_cycle=}')
 
                     # build a transition graph
                     for idx, loc in enumerate(transition_cycle):
@@ -676,18 +670,18 @@ def main():
     plt.show()
 
     # Pick up node
-    print(transition_graph.find_node("A", False, False))
-    print(transition_graph.find_node("A", False, True))
-    print(transition_graph.find_node("A", True, True))
-    print(transition_graph.find_node("C", True, True))
+    # print(transition_graph.find_node("A", False, False))
+    # print(transition_graph.find_node("A", False, True))
+    # print(transition_graph.find_node("A", True, True))
+    # print(transition_graph.find_node("C", True, True))
 
     # Pick up node at random
     # Find loading node
 
-    print(transition_graph.get_loc_names())
-    print(transition_graph.get_loc_names(loc_type='loading'))
-    print(transition_graph.get_loc_names(loc_type='dumping'))
-    print(transition_graph.get_loc_names(loc_type='intersection'))
+    # print(transition_graph.get_loc_names())
+    # print(transition_graph.get_loc_names(loc_type='loading'))
+    # print(transition_graph.get_loc_names(loc_type='dumping'))
+    # print(transition_graph.get_loc_names(loc_type='intersection'))
 
 
 if __name__ == '__main__':
