@@ -2,49 +2,12 @@ from typing import Optional
 import random
 
 random.seed(1)
+
 import numpy as np
+
 from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel, TransitionType, LocationType
-
+from objective_function import ObjectiveFunction
 from logger import *
-
-
-class ObjectiveFunction():
-    """"""
-
-    def __init__(self, discount_factor):
-        """Constructor for ObjectiveFunction"""
-        self.xi = discount_factor
-        self.g = GoalFunction()
-
-    def update(self, t):
-        return 0 * self.xi * t
-
-    def get_val(self):
-        return 0
-
-    @staticmethod
-    def e(x):
-        if x <= 0:
-            return 1.0 / 4.0 - (x - 1.0 / 2.0) ** 2
-        else:
-            return np.sqrt(x + 1.0 / 4.0) - 1.0 / 2.0
-
-
-class GoalFunction():
-    """
-    return
-    """
-
-    def __init__(self, ):
-        """Constructor for GoalFunction"""
-        pass
-
-    def get_val(self, a1, a2, t):
-
-        if a2 is None:
-            return 5 * t  # DEBUG: set value from the upper solution
-        else:
-            return 1 * t
 
 
 class SystemState:
@@ -54,7 +17,8 @@ class SystemState:
         """Constructor for SystemStete"""
 
         self.trans_graph: TransitionGraph = transition_graph
-        self.o = ObjectiveFunction(0.5)
+
+        self.o = ObjectiveFunction(transition_graph)
 
         # prams
         # TODO: is it determined by material types?
@@ -62,18 +26,13 @@ class SystemState:
         self._r_for_dumping = 1.0
 
         # state
-        self.d: list[Optional[TransitionNode]] = [None] * num_vehicles   # vertex id that the i-th truck is heading to
-        self.td: list[float] = [0] * num_vehicles                        # estimated time of arrival at the next node
-        self.u: dict[TransitionNode] = self.__init_u_ke()                # FIXME: is it good to have it as a dict?
+        self.d: list[Optional[TransitionNode]] = [None] * num_vehicles  # vertex id that the i-th truck is heading to
+        self.td: list[float] = [0] * num_vehicles  # estimated time of arrival at the next node
+        self.u: dict[TransitionNode] = self.__init_u_ke()  # FIXME: is it good to have it as a dict?
         self.r: dict[(TransitionNode, TransitionNode)] = self.__init_r()  # total reward the i-th node has got
         self.o1: float = 0  # objective value
         self.o2: float = 0  # objective value
         self.t: float = 0  # the last point in time when the objective function was updated
-
-
-
-
-
 
     def __init_u_ke(self):
         ret = dict()
@@ -88,9 +47,11 @@ class SystemState:
             node_fr: TransitionNode = edge[0]
             node_to: TransitionNode = edge[1]
             if node_fr.star:
-                ret[edge] = self._r_for_loading
+                # ret[edge] = self._r_for_loading
+                ret[edge] = 0.0
             elif node_to.star:
-                ret[edge] = self._r_for_dumping
+                # ret[edge] = self._r_for_dumping
+                ret[edge] = 0.0
             else:
                 ret[edge] = 0.0
         return ret
@@ -149,7 +110,32 @@ class SystemState:
             self.d[idx] = org_node
             self.td[idx] = 0  # all trucks arrive at the org_nodes at 0:00
 
-    def transition(self, dt: float):
+    def get_reward_bucket(self,
+                          a1: str,  # TransitionNode,
+                          a2: Optional[str]):
+        """
+        a1: loading node
+        a2: unloading node
+        """
+        reward_bucket = None
+        if a2 is None:
+            for edge in self.r.keys():
+                node_fr: TransitionNode = edge[0]
+                node_to: TransitionNode = edge[1]
+                if node_fr.loaded_loc is not None:
+                    if node_fr.loaded_loc.loc_name == a1 and node_to.loc_name == a1 and node_fr.loc_name == a1 and node_fr.star:
+                        reward_bucket = self.r[edge]
+        else:
+            for edge in self.r.keys():
+                node_fr: TransitionNode = edge[0]
+                node_to: TransitionNode = edge[1]
+                if node_fr.loaded_loc is not None:
+                    if node_fr.loaded_loc.loc_name == a1 and node_to.loc_name == a2 and node_fr.loc_name == a2 and node_fr.star:
+                        reward_bucket = self.r[edge]
+
+        return reward_bucket
+
+    def transition(self):
         """"""
 
         # Find the fastest truck that arrives at its destination
@@ -157,7 +143,9 @@ class SystemState:
         logger.debug(f'Vehicle ID = {i}')
 
         # The simulation time equals the time when the truck arrives.
-        self.t = self.td[i]
+        new_t = self.td[i]
+        dt = new_t - self.t
+        self.t = new_t
 
         # Find the next action
         neighbors: list[TransitionNode] = list(self.trans_graph.G.neighbors(self.d[i]))  # FIXME: it should be wrapped.
@@ -168,13 +156,18 @@ class SystemState:
         l_e = trans_e.l
         f_e = trans_e.f
         r_e = trans_e.r
+        a_e = trans_e.a
 
         self.d[i] = node_to
         self.td[i] = max(self.td[i] + l_e, self.u[node_fr] + f_e)
-        self.u[node_fr] = self.td[i]         # FIXME: check if node_fr is correct
-        self.r[(node_fr, node_to)] += r_e    # FIXME: check if node_fr is correct
-        self.o1 = self.o.update(self.t)
-        self.o2 = self.o2 + self.o.xi ** 1.0 / dt
+        self.u[node_fr] = self.td[i]  # FIXME: check if node_fr is correct
+        self.r[(node_fr, node_to)] += r_e  # FIXME: check if node_fr is correct
+        new_o1 = self.o.o(self, self.t)
+        if dt != 0:
+            self.o2 = self.o2 + self.o.xi ** (1.0 / dt) * (new_o1 - self.o1)
+        else:
+            pass  # TODO:  check if this is expected behaivior
+        self.o1 = new_o1
 
     def evaluate(self):
         """"""
@@ -198,12 +191,15 @@ def main():
     dt = 5.0  # [sec]
 
     s.init(t)
-    for _ in range(20):
-        s.transition(dt)
+    for _ in range(200):
+        s.transition()
         s.show()
         t += dt
-
     s.evaluate()
+
+    assert s.o1 == 9.562971926147222
+    assert s.o2 == 7.228395132893053
+
 
 
 if __name__ == '__main__':

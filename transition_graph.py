@@ -27,7 +27,8 @@ class TransitionType(Enum):
 
 class TransitionNode:
     def __init__(self, name: str, x: float, y: float, loc_type: LocationType, activity_time,
-                 loc_name, state_name, star=False, is_loaded=None, loaded_loc=None):
+                 loc_name, state_name, star=False, is_loaded=None,
+                 loaded_loc=None):
         self.name: str = name
         self.pos: tuple[float, float] = (x, y)
         self.loc_type: LocationType = loc_type
@@ -37,6 +38,8 @@ class TransitionNode:
         self.star = star
         self.is_loaded = is_loaded
         self.loaded_loc = loaded_loc
+
+        self.is_activity_location = False
 
         # TODO: to be named as NodeLabels?
         self.u_ke = None
@@ -297,6 +300,13 @@ class TransitionGraph:
 
         return None
 
+    def get_load(self):
+        pass
+
+    def get_unload(self):
+        pass
+
+
     # private methods
     def __find_trip(self, dump, load, paths_type='shortest', weight=None):
 
@@ -516,11 +526,6 @@ class TransitionGraph:
             logger.debug('Unknown combination of nodes')
             raise ValueError
 
-    def __is_activity_loading(self, node_fr, node_to):
-        if self.__check_transition_type(node_fr, node_to) == TransitionType.ACTIVITY:
-            if node_to.loaded_loc.loc_type == LocationType.ORE_LOAD:  # or node_to.loaded_loc.loc_type == LocationType.WST_LOAD:
-                return True
-        return False
 
     def __set_labels_edges(self):
         """
@@ -567,7 +572,7 @@ class TransitionGraph:
                 if node_to.is_loaded:
                     label.a = (node_from.loc_name, None)
                 else:
-                    label.a = (node_from.loc_name, node_to.loc_name)
+                    label.a = (node_from.loaded_loc.loc_name, node_to.loc_name)
 
             self.G.edges[edge]["transition"] = label
 
