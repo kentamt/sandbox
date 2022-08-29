@@ -179,27 +179,18 @@ class SystemState:
 
 
 def main():
-    road_network = RoadNetwork('1')
+    road_network = RoadNetwork('4')
     transition_graph = TransitionGraph(road_network.R)
 
-    n = 3
-    # m = 5
-    # p = 2  # the number of load-unload pair
+    n = 4
     s = SystemState(transition_graph, n)
 
     t = 0  # [sec]
-    dt = 5.0  # [sec]
-
     s.init(t)
     for _ in range(200):
         s.transition()
         s.show()
-        t += dt
     s.evaluate()
-
-    assert s.o1 == 9.562971926147222
-    assert s.o2 == 7.228395132893053
-
 
 
 if __name__ == '__main__':

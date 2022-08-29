@@ -42,7 +42,7 @@ class ObjectiveFunction:
         return o_sum_a1_a2 + o_sum_a1
 
     def f(self,
-          # state: SystemState,
+          # state: SystemState,  Couldn't be used because of circular referencing.
           state,
           a1: TransitionNode,
           a2: Optional[TransitionNode],
@@ -120,7 +120,12 @@ class ObjectiveFunction:
                     node_to: TransitionNode
 
                     if self.is_activity_node(node_fr) and node_fr.loc_type == LocationType.ORE_LOAD:
-                        if self.is_activity_node(node_to) and node_to.loc_type == LocationType.CRUSHER:
+                        if self.is_activity_node(node_to) and node_to.loc_type == LocationType.ORE_DUMP:
+                            edge = (node_fr, node_to)
+                            dummy_plan[edge] = dummy_value
+
+                    if self.is_activity_node(node_fr) and node_fr.loc_type == LocationType.WST_LOAD:
+                        if self.is_activity_node(node_to) and node_to.loc_type == LocationType.WST_DUMP:
                             edge = (node_fr, node_to)
                             dummy_plan[edge] = dummy_value
 
@@ -133,13 +138,13 @@ class ObjectiveFunction:
         - a node which is dumping location and not is_loaded
         as an activity node
         """
-        if node.loc_type == LocationType.ORE_LOAD:
+        if node.loc_type == LocationType.ORE_LOAD or node.loc_type == LocationType.WST_LOAD:
             if node.is_loaded and not node.star:
                 return True
             else:
                 return False
 
-        elif node.loc_type == LocationType.CRUSHER:
+        elif node.loc_type == LocationType.ORE_DUMP or node.loc_type == LocationType.WST_DUMP:
             if not node.is_loaded and not node.star:
                 return True
             else:
@@ -147,11 +152,6 @@ class ObjectiveFunction:
 
         else:
             return False
-
-        # if node.loc_type == loc_type and not node.star and not node.is_loaded:
-        #     return True
-        # else:
-        #     return False
 
     def update(self, t):
         return 0 * self.xi * t
