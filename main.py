@@ -1,27 +1,28 @@
-import networkx as nx
+from transition_graph import RoadNetwork, TransitionGraph
+from state import SystemState
+from logger import *
 
+def main():
+    road_network = RoadNetwork('1')
+    transition_graph = TransitionGraph(road_network.R)
+    transition_graph.show_labels_table()
+    transition_graph.draw()
+    transition_graph.show()
 
-class Dog:
-    def __init__(self, name):
-        self.name  = name
+    n = 3
+    t_s = 0  # [sec]
+    t_e = 200.0 * 60.0  # [sec]
+    s = SystemState(transition_graph, n, t_s, t_e)
 
-    def say(self):
-        print('Wan')
+    s.init()
+    while True:
+        s.transition()
+        # s.show()
+        if s.sim_time > s.t_e:
+            break
 
-    def __eq__(self, other):
-        return self.name == other.name
+    logger.info(f'Score = {s.get_objective():4.3}')
 
-    def __ne__(self, other):
-        return self.name != other.name
-
-    def __hash__(self):
-        return id(self)
 
 if __name__ == '__main__':
-    pochi = Dog('pochi')
-    bell = Dog('bell')
-
-    g = nx.DiGraph()
-
-g.add_edge(pochi, bell)
-print(g)
+    main()

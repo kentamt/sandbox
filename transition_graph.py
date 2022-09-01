@@ -123,6 +123,15 @@ class RoadNetwork:
                 'G': (4.0, -1, LocationType.WST_LOAD, 120),
                 'H': (0.0, -1, LocationType.WST_DUMP, 90),
             }
+        elif input_type == '6':
+            data = {
+                'S1': (-1, 0, LocationType.ORE_LOAD, 120),
+                'S2': (0.5, 1, LocationType.WST_LOAD, 120),
+                'D1': (0, -1, LocationType.WST_DUMP, 90),
+                'D2': (0, 0, LocationType.ORE_DUMP, 90),
+                'I1': (-0.5, 0.5, LocationType.INTSCT, 0),
+                'I2': (0.5, 0, LocationType.INTSCT, 0),
+            }
         else:
             logger.error('Unknown input number.')
             raise ValueError
@@ -195,6 +204,20 @@ class RoadNetwork:
                 (loc_dict['G'], loc_dict['E']),
                 (loc_dict['E'], loc_dict['H']),
                 (loc_dict['H'], loc_dict['E']),
+            ])
+        elif input_type == '6':
+            road_network.add_edges_from([
+                (loc_dict['S1'], loc_dict['I1']),
+                (loc_dict['I1'], loc_dict['S1']),
+                (loc_dict['D2'], loc_dict['I1']),
+                (loc_dict['I1'], loc_dict['D2']),
+                (loc_dict['I1'], loc_dict['S2']),
+                (loc_dict['S2'], loc_dict['I1']),
+                (loc_dict['I1'], loc_dict['I2']),
+                (loc_dict['I2'], loc_dict['I1']),
+                (loc_dict['D1'], loc_dict['I2']),
+                (loc_dict['I2'], loc_dict['D1']),
+
             ])
 
         for edge in road_network.edges:

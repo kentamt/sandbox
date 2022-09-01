@@ -202,7 +202,7 @@ class SystemState:
 
 
 def main():
-    road_network = RoadNetwork('5')
+    road_network = RoadNetwork('6')
     transition_graph = TransitionGraph(road_network.R)
     transition_graph.show_labels_table()
     transition_graph.draw()
