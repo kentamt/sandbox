@@ -1,15 +1,8 @@
 import copy
 from typing import Optional
 import random
-
-import matplotlib.pyplot as plt
-
-# random.seed(1)
-
 import numpy as np
-import pandas as pd
 
-from mcts import mcts
 from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel, TransitionType, LocationType
 from objective_function import ObjectiveFunction
 from logger import *
@@ -52,7 +45,6 @@ class SystemState:
             for i, node in enumerate(initial_nodes):
                 self.d[i] = node
                 self.td[i] = t_s
-
 
     def __init_u_ke(self):
         ret = dict()
@@ -111,7 +103,6 @@ class SystemState:
 
     def get_objective(self):
         return self.o2
-
 
     def get_reward_bucket(self,
                           a1: str,  # TransitionNode,
@@ -248,7 +239,6 @@ class SystemState:
 
         return new_state
 
-
     def isTerminal(self):
         if self.sim_time > self.t_e:
             return True
@@ -282,7 +272,7 @@ class Action:
         return hash((self.idx, self.node_fr, self.node_to, self.trans_e))
 
 
-def main(mine_type='1', t_end = 1200.0):
+def main(mine_type='1', t_end=1200.0):
     road_network = RoadNetwork(mine_type)
     transition_graph = TransitionGraph(road_network.R)
     transition_graph.show_labels_table()
@@ -292,57 +282,18 @@ def main(mine_type='1', t_end = 1200.0):
     n = 3
     t_s = 0  # [sec]
     t_e = t_end  # [sec]
-
     initial_nodes = [transition_graph.find_node('A', False, False) for _ in range(n)]
     s = SystemState(transition_graph, n, t_s, t_e, initial_nodes=initial_nodes)
-
-    reward_log = {'sim_time': [], 'objective': []}
 
     while s.sim_time <= s.t_e:
         s.transition()
-        # s.show()
-
-        reward_log['sim_time'].append(s.sim_time)
-        reward_log['objective'].append(s.get_objective())
+        s.show()
 
     logger.info(f'Score = {s.get_objective():4.3} @ {s.t_e}[sec]')
-    df = pd.DataFrame(reward_log)
-    df.to_csv(f'random_result_{mine_type}.csv')
 
-def mcts_main(mine_type='1', t_end = 1200.0):
-
-    road_network = RoadNetwork(mine_type)
-    transition_graph = TransitionGraph(road_network.R)
-
-    n = 3
-    t_s = 0  # [sec]
-    t_e = t_end  # [sec]
-
-    initial_nodes = [transition_graph.find_node('A', False, False) for _ in range(n)]
-    s = SystemState(transition_graph, n, t_s, t_e, initial_nodes=initial_nodes)
-
-    # searcher = mcts(timeLimit=5) # FIXME: should be oen cycle time.
-    searcher = mcts(iterationLimit=15)  # FIXME: should be oen cycle time.
-
-    reward_log = {'sim_time': [], 'objective': []}
-
-    while s.sim_time <= s.t_e:
-        action = searcher.search(initialState=s)
-        s = s.takeAction(action)
-
-        # logger.info(action)
-        # logger.info(s)
-        reward_log['sim_time'].append(s.sim_time)
-        reward_log['objective'].append(s.get_objective())
-
-    logger.info(f'Score = {s.get_objective():4.3} @ {s.t_e}[sec]')
-    df = pd.DataFrame(reward_log)
-    df.to_csv(f'mcts_result_{mine_type}.csv')
 
 if __name__ == '__main__':
     mine_type = '6'
     t_end = 100.0 * 60.0
-
     main(mine_type=mine_type, t_end=t_end)
-    mcts_main(mine_type=mine_type, t_end=t_end)
     logger.info('EOP')

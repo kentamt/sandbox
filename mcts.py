@@ -6,16 +6,27 @@ import random
 
 
 def randomPolicy(state):
+    time_horizon = 5.0 * 60.0  # [sec]  FIXME: don't hard-code it here.
+    sim_time_start = state.sim_time
     while not state.isTerminal():
         try:
             action = random.choice(state.getPossibleActions())
         except IndexError:
             raise Exception("Non-terminal state has no possible actions: " + str(state))
+
         state = state.takeAction(action)
+        elapsed_sim_time = state.sim_time - sim_time_start
+        if elapsed_sim_time > time_horizon:
+            break
+        # else:
+        #     print(f'{elapsed_sim_time/60.0=}')
+
     return state.getReward()
+
 
 def heuristicPolicy(state):
     raise NotImplementedError
+
 
 class treeNode():
     def __init__(self, state, parent):
@@ -28,12 +39,13 @@ class treeNode():
         self.children = {}
 
     def __str__(self):
-        s=[]
-        s.append("totalReward: %s"%(self.totalReward))
-        s.append("numVisits: %d"%(self.numVisits))
-        s.append("isTerminal: %s"%(self.isTerminal))
-        s.append("possibleActions: %s"%(self.children.keys()))
-        return "%s: {%s}"%(self.__class__.__name__, ', '.join(s))
+        s = []
+        s.append("totalReward: %s" % (self.totalReward))
+        s.append("numVisits: %d" % (self.numVisits))
+        s.append("isTerminal: %s" % (self.isTerminal))
+        s.append("possibleActions: %s" % (self.children.keys()))
+        return "%s: {%s}" % (self.__class__.__name__, ', '.join(s))
+
 
 class mcts():
     def __init__(self,
@@ -41,7 +53,6 @@ class mcts():
                  iterationLimit=None,
                  explorationConstant=1 / math.sqrt(2),
                  rolloutPolicy=randomPolicy):
-
 
         if timeLimit != None:
             if iterationLimit != None:
@@ -57,6 +68,12 @@ class mcts():
                 raise ValueError("Iteration limit must be greater than one")
             self.searchLimit = iterationLimit
             self.limitType = 'iterations'
+
+        # NOTE: c is a tuning parameter. if the reward is bounded with [0, 1], it should be sqrt(2)
+        self.c = math.sqrt(2)
+        self.min_reward = 10e6
+        self.max_reward = -10e6
+
         self.explorationConstant = explorationConstant
         self.rollout = rolloutPolicy
 
@@ -72,7 +89,7 @@ class mcts():
                 self.executeRound()
 
         bestChild = self.getBestChild(self.root, 0)
-        action=(action for action, node in self.root.children.items() if node is bestChild).__next__()
+        action = (action for action, node in self.root.children.items() if node is bestChild).__next__()
         if needDetails:
             return {"action": action, "expectedReward": bestChild.totalReward / bestChild.numVisits}
         else:
@@ -85,6 +102,15 @@ class mcts():
         node = self.selectNode(self.root)
         reward = self.rollout(node.state)
         self.backpropogate(node, reward)
+
+        # update c value
+        if reward > self.max_reward:
+            self.max_reward = reward
+        if reward < self.min_reward:
+            self.min_reward = reward
+
+        self.c = max(1, self.max_reward-self.min_reward) * math.sqrt(2)
+        print(self.c)
 
     def selectNode(self, node):
         while not node.isTerminal:
@@ -116,8 +142,9 @@ class mcts():
         bestValue = float("-inf")
         bestNodes = []
         for child in node.children.values():
-            nodeValue = node.state.getCurrentPlayer() * child.totalReward / child.numVisits + explorationValue * math.sqrt(
-                2 * math.log(node.numVisits) / child.numVisits)
+            nodeValue = node.state.getCurrentPlayer() * child.totalReward / child.numVisits + explorationValue * self.c * \
+                        math.sqrt(math.log(node.numVisits) / child.numVisits)
+
             if nodeValue > bestValue:
                 bestValue = nodeValue
                 bestNodes = [child]
