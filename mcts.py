@@ -34,7 +34,9 @@ class treeNode():
         return "%s: {%s}"%(self.__class__.__name__, ', '.join(s))
 
 class mcts():
-    def __init__(self, timeLimit=None, iterationLimit=None, explorationConstant=1 / math.sqrt(2),
+    def __init__(self, timeLimit=None,
+                 iterationLimit=None,
+                 explorationConstant=1 / math.sqrt(2),
                  rolloutPolicy=randomPolicy):
         if timeLimit != None:
             if iterationLimit != None:
@@ -78,6 +80,7 @@ class mcts():
         node = self.selectNode(self.root)
         reward = self.rollout(node.state)
         self.backpropogate(node, reward)
+        # print(f'{node.state}, {reward=}')
 
     def selectNode(self, node):
         while not node.isTerminal:

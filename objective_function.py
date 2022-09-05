@@ -18,7 +18,7 @@ class ObjectiveFunction:
         self.mine_plan: dict[(TransitionNode, TransitionNode)] = dummy_plan
 
         # params
-        self.xi = 0.5
+        self.xi = 0.8
 
     def o(self, state, t: float):
         """

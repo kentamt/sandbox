@@ -11,17 +11,22 @@ matplotlib.use('TkAgg')
 
 
 class LocationType(Enum):
-    ORE_LOAD = auto(),
-    ORE_DUMP = auto(),
-    WST_LOAD = auto(),
-    WST_DUMP = auto(),
-    INTSCT = auto()
+    ORE_LOAD = 1,
+    ORE_DUMP = 2,
+    WST_LOAD = 3,
+    WST_DUMP = 4,
+    INTSCT = 5
+    # ORE_LOAD = auto(),
+    # ORE_DUMP = auto(),
+    # WST_LOAD = auto(),
+    # WST_DUMP = auto(),
+    # INTSCT = auto()
 
 
 class TransitionType(Enum):
-    TRAVELING = auto(),
-    ACTIVITY = auto(),
-    REWARDING = auto()
+    TRAVELING = 1,
+    ACTIVITY = 2,
+    REWARDING = 3
 
 
 class TransitionNode:
@@ -48,6 +53,21 @@ class TransitionNode:
 
     def __repr__(self):
         return self.__str__()
+
+    def __hash__(self):
+        return hash((self.name, self.loc_name, self.star, self.is_loaded, self.loaded_loc))
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        else:
+            return (self.name, self.loc_name, self.star, self.is_loaded, self.loaded_loc) == \
+                   (other.name, other.loc_name, other.star, other.is_loaded, other.loaded_loc)
+
+    def __ne__(self, other):
+        return not(self == other)
+
+
 
 
 class TransitionLabel:
@@ -128,7 +148,7 @@ class RoadNetwork:
                 'S1': (-1, 0, LocationType.ORE_LOAD, 120),
                 'S2': (0.5, 1, LocationType.WST_LOAD, 120),
                 'D1': (0, -1, LocationType.WST_DUMP, 90),
-                'D2': (0, 0, LocationType.ORE_DUMP, 90),
+                'A': (0, 0, LocationType.ORE_DUMP, 90),
                 'I1': (-0.5, 0.5, LocationType.INTSCT, 0),
                 'I2': (0.5, 0, LocationType.INTSCT, 0),
             }
@@ -209,8 +229,8 @@ class RoadNetwork:
             road_network.add_edges_from([
                 (loc_dict['S1'], loc_dict['I1']),
                 (loc_dict['I1'], loc_dict['S1']),
-                (loc_dict['D2'], loc_dict['I1']),
-                (loc_dict['I1'], loc_dict['D2']),
+                (loc_dict['A'], loc_dict['I1']),
+                (loc_dict['I1'], loc_dict['A']),
                 (loc_dict['I1'], loc_dict['S2']),
                 (loc_dict['S2'], loc_dict['I1']),
                 (loc_dict['I1'], loc_dict['I2']),
@@ -658,11 +678,11 @@ class TransitionGraph:
 
             elif transition_type == TransitionType.ACTIVITY:
                 if node_to.is_loaded:
-                    label.l = 120
-                    label.f = 120
+                    label.l = 240 # 120
+                    label.f = 240 # 120
                 else:
-                    label.l = 90
-                    label.f = 90
+                    label.l = 180 # 90
+                    label.f = 180 # 90
                 label.k = (node_from.loc_name, node_to.loc_name)  # same
                 label.r = 0
                 label.a = None

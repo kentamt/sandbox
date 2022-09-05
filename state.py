@@ -1,3 +1,4 @@
+import copy
 from typing import Optional
 import random
 
@@ -6,7 +7,9 @@ import matplotlib.pyplot as plt
 random.seed(1)
 
 import numpy as np
+import pandas as pd
 
+from mcts import mcts
 from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel, TransitionType, LocationType
 from objective_function import ObjectiveFunction
 from logger import *
@@ -15,7 +18,7 @@ from logger import *
 class SystemState:
     """"""
 
-    def __init__(self, transition_graph, num_vehicles, t_s, t_e):
+    def __init__(self, transition_graph, num_vehicles, t_s, t_e, initial_nodes=None):
         """Constructor for SystemState"""
 
         # simulation time
@@ -40,6 +43,15 @@ class SystemState:
         self.o1: float = 0  # objective value
         self.o2: float = 0  # objective value
         self.t: float = t_s  # the last point in time when the objective function was updated
+
+        if initial_nodes is not None:
+            if len(initial_nodes) != len(self.d):
+                logger.error('length mismatch')
+                raise ValueError
+            node: TransitionNode
+            for i, node in enumerate(initial_nodes):
+                self.d[i] = node
+
 
     def __init_u_ke(self):
         ret = dict()
@@ -159,6 +171,7 @@ class SystemState:
 
         # Find the next action
         # FIXME: at the moment, the next node is randomly selected.
+        # Take possible actions
         neighbors: list[TransitionNode] = self.trans_graph.get_neighbors(self.d[i])
         node_to: TransitionNode = random.choice(neighbors)
         node_fr: TransitionNode = self.d[i]
@@ -200,9 +213,96 @@ class SystemState:
         # self.trans_graph.show()
         #
 
+    def getCurrentPlayer(self):
+        """ always return 1 because it is not a 2-player game! """
+        return 1
 
-def main():
-    road_network = RoadNetwork('6')
+    def getPossibleActions(self):
+
+        possible_actions = []
+
+        # Find the fastest truck that arrives at its destination
+        truck_idx = np.argmin(self.td)
+
+        # Find possible actions
+        neighbors: list[TransitionNode] = self.trans_graph.get_neighbors(self.d[truck_idx])
+        for node_to in neighbors:
+            node_fr: TransitionNode = self.d[truck_idx]
+            trans_e: TransitionLabel = self.trans_graph.G.edges[(node_fr, node_to)]['transition']
+            action = Action(truck_idx, node_fr, node_to, trans_e)
+            possible_actions.append(action)
+
+        return possible_actions
+
+    def takeAction(self, action):
+        """"""
+        new_state = copy.deepcopy(self)
+
+        i = action.idx
+        node_fr = action.node_fr
+        node_to = action.node_to
+        trans_e = action.trans_e
+        l_e = trans_e.l
+        f_e = trans_e.f
+        r_e = trans_e.r
+
+        # The simulation time equals the time when the truck arrives.
+        new_t = new_state.td[i]
+        dt = new_t - new_state.t
+        new_state.t = new_t
+        new_state.sim_time += dt  # [sec]
+
+        new_state.d[i] = node_to
+
+        new_state.td[i] = max(new_state.td[i] + l_e, new_state.u[node_fr] + f_e)
+        new_state.u[node_fr] = new_state.td[i]
+        new_state.r[(node_fr, node_to)] += r_e
+
+        new_o1 = new_state.o.o(new_state, new_state.t)
+        if dt != 0:
+            new_state.o2 = new_state.o2 + new_state.o.xi ** (1.0 / dt) * (new_o1 - new_state.o1)
+        else:
+            pass  # TODO:  check if this is expected behavior
+        new_state.o1 = new_o1
+
+        return new_state
+
+
+    def isTerminal(self):
+        if self.sim_time > self.t_e:
+            return True
+        else:
+            return False
+
+    def getReward(self):
+        return self.o2
+
+    def __eq__(self, other):
+        raise NotImplementedError()
+
+
+class Action:
+    def __init__(self, idx, node_fr, node_to, trans_e):
+        self.idx = idx
+        self.node_fr = node_fr
+        self.node_to = node_to
+        self.trans_e = trans_e
+
+    def __repr__(self):
+        return f'{self.idx}, {self.node_fr}==>{self.node_to},{self.trans_e}'
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __eq__(self, other):
+        return self.node_to.name == other.node_to.name
+
+    def __hash__(self):
+        return hash((self.idx, self.node_fr, self.node_to, self.trans_e))
+
+
+def main(mine_type='1', t_end = 1200.0):
+    road_network = RoadNetwork(mine_type)
     transition_graph = TransitionGraph(road_network.R)
     transition_graph.show_labels_table()
     transition_graph.draw()
@@ -210,18 +310,60 @@ def main():
 
     n = 3
     t_s = 0  # [sec]
-    t_e = 200.0 * 60.0  # [sec]
-    s = SystemState(transition_graph, n, t_s, t_e)
+    t_e = t_end  # [sec]
 
+    initial_nodes = [transition_graph.find_node('A', False, False) for _ in range(n)]
+    s = SystemState(transition_graph, n, t_s, t_e, initial_nodes=initial_nodes)
     s.init()
-    while True:
+
+    reward_log = {'sim_time': [], 'objective': []}
+
+    while s.sim_time <= s.t_e:
         s.transition()
         # s.show()
-        if s.sim_time > s.t_e:
-            break
 
-    logger.info(f'Score = {s.get_objective():4.3}')
+        reward_log['sim_time'].append(s.sim_time)
+        reward_log['objective'].append(s.get_objective())
+
+    logger.info(f'Score = {s.get_objective():4.3} @ {s.t_e}[sec]')
+    df = pd.DataFrame(reward_log)
+    df.to_csv(f'random_result_{mine_type}.csv')
+
+def mcts_main(mine_type='1', t_end = 1200.0):
+
+    road_network = RoadNetwork(mine_type)
+    transition_graph = TransitionGraph(road_network.R)
+    # transition_graph.show_labels_table()
+    # transition_graph.draw()
+    # transition_graph.show()
+
+    n = 3
+    t_s = 0  # [sec]
+    t_e = t_end  # [sec]
+    initial_nodes = [transition_graph.find_node('A', False, False) for _ in range(n)]
+    s = SystemState(transition_graph, n, t_s, t_e, initial_nodes=initial_nodes)
+    # searcher = mcts(timeLimit=5) # FIXME: should be oen cycle time.
+    searcher = mcts(iterationLimit=100)  # FIXME: should be oen cycle time.
+
+    reward_log = {'sim_time': [], 'objective': []}
+
+    while s.sim_time <= s.t_e:
+        action = searcher.search(initialState=s)
+        # logger.info(action)
+        # logger.info(s)
+        s = s.takeAction(action)
+
+        # reward_log['sim_time'].append(s.sim_time)
+        # reward_log['objective'].append(s.get_objective())
+
+    logger.info(f'Score = {s.get_objective():4.3} @ {s.t_e}[sec]')
+    df = pd.DataFrame(reward_log)
+    df.to_csv(f'mcts_result_{mine_type}.csv')
 
 if __name__ == '__main__':
-    main()
+    mine_type = '6'
+    t_end = 200.0 * 60.0
+
+    main(mine_type=mine_type, t_end=t_end)
+    mcts_main(mine_type=mine_type, t_end=t_end)
     logger.info('EOP')
