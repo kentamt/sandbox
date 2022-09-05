@@ -81,10 +81,10 @@ class RoadNetwork:
         data = dict()
         if input_type == '1':
             data = {
-                'A': (0, 0, LocationType.ORE_DUMP, 90),
-                'B': (1.73, 1, LocationType.ORE_LOAD, 120),
-                'C': (1.73, -1, LocationType.ORE_LOAD, 120),
-                'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
+                'A': (0.0, 0, LocationType.ORE_DUMP, 90),
+                'B': (3**0.5, 1, LocationType.ORE_LOAD, 120),
+                'C': (3**0.5, -1, LocationType.ORE_LOAD, 120),
+                'D': (2*(3**0.5)/3, 0, LocationType.INTSCT, 0),
             }
         elif input_type == '2':
             data = {
