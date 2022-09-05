@@ -4,7 +4,7 @@ import random
 
 import matplotlib.pyplot as plt
 
-random.seed(1)
+# random.seed(1)
 
 import numpy as np
 import pandas as pd
@@ -51,6 +51,7 @@ class SystemState:
             node: TransitionNode
             for i, node in enumerate(initial_nodes):
                 self.d[i] = node
+                self.td[i] = t_s
 
 
     def __init_u_ke(self):
@@ -111,26 +112,6 @@ class SystemState:
     def get_objective(self):
         return self.o2
 
-    def init(self):
-        """
-        give trucks initial positions
-
-        state doesn't include the current position of each truck.
-        It only contains the destination.
-        We give their origins as destination with estimated arrival time = 0
-
-        """
-        # DEBUG:
-        # All vehicle start from 'A' as empty
-        import random
-        random.seed(1)
-        dumping_locs = self.trans_graph.get_loc_names(loc_type='dumping')
-        dumping_nodes = [self.trans_graph.find_node(loc, False, False) for loc in dumping_locs]
-
-        for idx, _ in enumerate(self.d):
-            org_node = random.choice(dumping_nodes)
-            self.d[idx] = org_node
-            self.td[idx] = self.t_s  # [sec]
 
     def get_reward_bucket(self,
                           a1: str,  # TransitionNode,
@@ -314,7 +295,6 @@ def main(mine_type='1', t_end = 1200.0):
 
     initial_nodes = [transition_graph.find_node('A', False, False) for _ in range(n)]
     s = SystemState(transition_graph, n, t_s, t_e, initial_nodes=initial_nodes)
-    s.init()
 
     reward_log = {'sim_time': [], 'objective': []}
 
@@ -333,28 +313,27 @@ def mcts_main(mine_type='1', t_end = 1200.0):
 
     road_network = RoadNetwork(mine_type)
     transition_graph = TransitionGraph(road_network.R)
-    # transition_graph.show_labels_table()
-    # transition_graph.draw()
-    # transition_graph.show()
 
     n = 3
     t_s = 0  # [sec]
     t_e = t_end  # [sec]
+
     initial_nodes = [transition_graph.find_node('A', False, False) for _ in range(n)]
     s = SystemState(transition_graph, n, t_s, t_e, initial_nodes=initial_nodes)
+
     # searcher = mcts(timeLimit=5) # FIXME: should be oen cycle time.
-    searcher = mcts(iterationLimit=100)  # FIXME: should be oen cycle time.
+    searcher = mcts(iterationLimit=15)  # FIXME: should be oen cycle time.
 
     reward_log = {'sim_time': [], 'objective': []}
 
     while s.sim_time <= s.t_e:
         action = searcher.search(initialState=s)
-        # logger.info(action)
-        # logger.info(s)
         s = s.takeAction(action)
 
-        # reward_log['sim_time'].append(s.sim_time)
-        # reward_log['objective'].append(s.get_objective())
+        # logger.info(action)
+        # logger.info(s)
+        reward_log['sim_time'].append(s.sim_time)
+        reward_log['objective'].append(s.get_objective())
 
     logger.info(f'Score = {s.get_objective():4.3} @ {s.t_e}[sec]')
     df = pd.DataFrame(reward_log)
@@ -362,7 +341,7 @@ def mcts_main(mine_type='1', t_end = 1200.0):
 
 if __name__ == '__main__':
     mine_type = '6'
-    t_end = 200.0 * 60.0
+    t_end = 100.0 * 60.0
 
     main(mine_type=mine_type, t_end=t_end)
     mcts_main(mine_type=mine_type, t_end=t_end)
