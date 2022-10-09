@@ -10,32 +10,41 @@ from logger import *
 matplotlib.use('TkAgg')
 
 
-class LocationType(Enum):
-    ORE_LOAD = 1,
-    ORE_DUMP = 2,
-    WST_LOAD = 3,
-    WST_DUMP = 4,
+class FASTLocationType(Enum):
+    ORE_LOAD = (1,)
+    ORE_DUMP = (2,)
+    WST_LOAD = (3,)
+    WST_DUMP = (4,)
     INTSCT = 5
-    # ORE_LOAD = auto(),
-    # ORE_DUMP = auto(),
-    # WST_LOAD = auto(),
-    # WST_DUMP = auto(),
-    # INTSCT = auto()
 
 
 class TransitionType(Enum):
-    TRAVELING = 1,
-    ACTIVITY = 2,
+    TRAVELING = (1,)
+    ACTIVITY = (2,)
     REWARDING = 3
+
+#
+# class FASTLocationType(Enum):
+#     ORE_LOAD = 1,
+#     ORE_DUMP = 2,
+#     WST_LOAD = 3,
+#     WST_DUMP = 4,
+#     INTSCT = 5
+#
+#
+# class TransitionType(Enum):
+#     TRAVELING = 1,
+#     ACTIVITY = 2,
+#     REWARDING = 3
 
 
 class TransitionNode:
-    def __init__(self, name: str, x: float, y: float, loc_type: LocationType, activity_time,
+    def __init__(self, name: str, x: float, y: float, loc_type: FASTLocationType, activity_time,
                  loc_name, state_name, star=False, is_loaded=None,
                  loaded_loc=None):
         self.name: str = name
         self.pos: tuple[float, float] = (x, y)
-        self.loc_type: LocationType = loc_type
+        self.loc_type: FASTLocationType = loc_type
         self.activity_time = activity_time
         self.loc_name = loc_name
         self.state_name = state_name
@@ -94,63 +103,63 @@ class RoadNetwork:
 
     def __init__(self, input_type='1'):
         """Constructor for RoadNetwork"""
-        self.R = None
+        self.R = nx.DiGraph()
         self.__build(input_type)
 
     def __build(self, input_type: str):
         data = dict()
         if input_type == '1':
             data = {
-                'A': (0.0, 0, LocationType.ORE_DUMP, 90),
-                'B': (3**0.5, 1, LocationType.ORE_LOAD, 120),
-                'C': (3**0.5, -1, LocationType.ORE_LOAD, 120),
-                'D': (2*(3**0.5)/3, 0, LocationType.INTSCT, 0),
+                'A': (0.0, 0, FASTLocationType.ORE_DUMP, 90),
+                'B': (3 ** 0.5, 1, FASTLocationType.ORE_LOAD, 120),
+                'C': (3 ** 0.5, -1, FASTLocationType.ORE_LOAD, 120),
+                'D': (2 * (3**0.5) / 3, 0, FASTLocationType.INTSCT, 0),
             }
         elif input_type == '2':
             data = {
-                'A': (0, 0, LocationType.ORE_DUMP, 90),
-                'B': (1.73, 1, LocationType.ORE_LOAD, 120),
-                'C': (1.73, -1, LocationType.ORE_LOAD, 120),
-                'D': (2. / 1.73, 0, LocationType.INTSCT, 0),
-                'E': (2., 0, LocationType.INTSCT, 0),
+                'A': (0, 0, FASTLocationType.ORE_DUMP, 90),
+                'B': (1.73, 1, FASTLocationType.ORE_LOAD, 120),
+                'C': (1.73, -1, FASTLocationType.ORE_LOAD, 120),
+                'D': (2. / 1.73, 0, FASTLocationType.INTSCT, 0),
+                'E': (2., 0, FASTLocationType.INTSCT, 0),
             }
         elif input_type == '3':
             data = {
-                'A': (0.0, 0, LocationType.ORE_DUMP, 90),
-                'B': (3.0, 1, LocationType.ORE_LOAD, 120),
-                'C': (3.0, -1, LocationType.ORE_LOAD, 120),
-                'D': (1.5, 0, LocationType.INTSCT, 0),
-                'E': (2.5, 0, LocationType.INTSCT, 0),
-                'F': (2.0, 1, LocationType.INTSCT, 0),
+                'A': (0.0, 0, FASTLocationType.ORE_DUMP, 90),
+                'B': (3.0, 1, FASTLocationType.ORE_LOAD, 120),
+                'C': (3.0, -1, FASTLocationType.ORE_LOAD, 120),
+                'D': (1.5, 0, FASTLocationType.INTSCT, 0),
+                'E': (2.5, 0, FASTLocationType.INTSCT, 0),
+                'F': (2.0, 1, FASTLocationType.INTSCT, 0),
             }
         elif input_type == '4':
             data = {
-                'A': (0, 1, LocationType.ORE_DUMP, 120),
-                'E': (0, -1, LocationType.WST_DUMP, 120),
-                'B': (2.0, 1, LocationType.ORE_LOAD, 120),
-                'C': (2.0, -1, LocationType.WST_LOAD, 120),
-                'D': (1.0, 0, LocationType.INTSCT, 0),
+                'A': (0, 1, FASTLocationType.ORE_DUMP, 120),
+                'E': (0, -1, FASTLocationType.WST_DUMP, 120),
+                'B': (2.0, 1, FASTLocationType.ORE_LOAD, 120),
+                'C': (2.0, -1, FASTLocationType.WST_LOAD, 120),
+                'D': (1.0, 0, FASTLocationType.INTSCT, 0),
             }
 
         elif input_type == '5':
             data = {
-                'A': (0.0, 0, LocationType.ORE_DUMP, 90),
-                'B': (3.0, 1, LocationType.ORE_LOAD, 120),
-                'C': (3.0, -1, LocationType.ORE_LOAD, 120),
-                'D': (1.5, 0, LocationType.INTSCT, 0),
-                'E': (2.5, 0, LocationType.INTSCT, 0),
-                'F': (2.0, 1, LocationType.INTSCT, 0),
-                'G': (4.0, -1, LocationType.WST_LOAD, 120),
-                'H': (0.0, -1, LocationType.WST_DUMP, 90),
+                'A': (0.0, 0, FASTLocationType.ORE_DUMP, 90),
+                'B': (3.0, 1, FASTLocationType.ORE_LOAD, 120),
+                'C': (3.0, -1, FASTLocationType.ORE_LOAD, 120),
+                'D': (1.5, 0, FASTLocationType.INTSCT, 0),
+                'E': (2.5, 0, FASTLocationType.INTSCT, 0),
+                'F': (2.0, 1, FASTLocationType.INTSCT, 0),
+                'G': (4.0, -1, FASTLocationType.WST_LOAD, 120),
+                'H': (0.0, -1, FASTLocationType.WST_DUMP, 90),
             }
         elif input_type == '6':
             data = {
-                'S1': (-1, 0, LocationType.ORE_LOAD, 120),
-                'S2': (0.5, 1, LocationType.WST_LOAD, 120),
-                'D1': (0, -1, LocationType.WST_DUMP, 90),
-                'A': (0, 0, LocationType.ORE_DUMP, 90),
-                'I1': (-0.5, 0.5, LocationType.INTSCT, 0),
-                'I2': (0.5, 0, LocationType.INTSCT, 0),
+                'S1': (-1, 0, FASTLocationType.ORE_LOAD, 120),
+                'S2': (0.5, 1, FASTLocationType.WST_LOAD, 120),
+                'D1': (0, -1, FASTLocationType.WST_DUMP, 90),
+                'A': (0, 0, FASTLocationType.ORE_DUMP, 90),
+                'I1': (-0.5, 0.5, FASTLocationType.INTSCT, 0),
+                'I2': (0.5, 0, FASTLocationType.INTSCT, 0),
             }
         else:
             logger.error('Unknown input number.')
@@ -246,6 +255,9 @@ class RoadNetwork:
 
         self.R = road_network
 
+    def add_edge(self, loc_from: TransitionNode, loc_to:TransitionNode):
+        self.R.add_edge(loc_from, loc_to)
+
 
 class TransitionGraph:
     def __init__(self, road_network: nx.DiGraph):
@@ -273,7 +285,7 @@ class TransitionGraph:
         for loc in self.R.nodes:
             pos[loc] = loc.pos
 
-        for loc_type in [LocationType.ORE_LOAD, LocationType.WST_LOAD]:
+        for loc_type in [FASTLocationType.ORE_LOAD, FASTLocationType.WST_LOAD]:
             load_list = self.__get_load_list(loc_type)
             nx.draw_networkx_nodes(self.R,
                                    pos=pos,
@@ -283,7 +295,7 @@ class TransitionGraph:
                                    edgecolors='gray',
                                    ax=axes[0])
 
-        for loc_type in [LocationType.ORE_DUMP, LocationType.WST_DUMP]:
+        for loc_type in [FASTLocationType.ORE_DUMP, FASTLocationType.WST_DUMP]:
             dump_list = self.__get_dump_list(loc_type)
             nx.draw_networkx_nodes(self.R,
                                    pos=pos,
@@ -322,7 +334,7 @@ class TransitionGraph:
         for loc, pos in transition_pos.items():
             label_pos[loc] = (pos[0], pos[1] + 0.1)
 
-        for loc_type in [LocationType.ORE_LOAD, LocationType.WST_LOAD]:
+        for loc_type in [FASTLocationType.ORE_LOAD, FASTLocationType.WST_LOAD]:
             transition_load_list = [loc for loc in self.G.nodes if
                                     loc.loc_type == loc_type]  # or loc.loc_type == LocationType.WST_LOAD]
             nx.draw_networkx_nodes(self.G,
@@ -332,7 +344,7 @@ class TransitionGraph:
                                    edgecolors='gray',
                                    node_size=200,
                                    ax=axes[1])
-        for loc_type in [LocationType.ORE_DUMP, LocationType.WST_DUMP]:
+        for loc_type in [FASTLocationType.ORE_DUMP, FASTLocationType.WST_DUMP]:
             transition_dump_list = [loc for loc in self.G.nodes if
                                     loc.loc_type == loc_type]  # or loc.loc_type == LocationType.WST_DUMP]
             nx.draw_networkx_nodes(self.G,
@@ -344,7 +356,7 @@ class TransitionGraph:
                                    ax=axes[1])
 
         transition_intsct_list = [loc for loc in self.G.nodes if
-                                  loc.loc_type == LocationType.INTSCT]
+                                  loc.loc_type == FASTLocationType.INTSCT]
 
         nx.draw_networkx_nodes(self.G,
                                pos=transition_pos,
@@ -394,17 +406,17 @@ class TransitionGraph:
 
         elif loc_type == 'loading':
             for node in self.R.nodes:
-                if node.loc_type == LocationType.ORE_LOAD:
+                if node.loc_type == FASTLocationType.ORE_LOAD:
                     ret.append(node.loc_name)
 
         elif loc_type == 'dumping':
             for node in self.R.nodes:
-                if node.loc_type == LocationType.ORE_DUMP:
+                if node.loc_type == FASTLocationType.ORE_DUMP:
                     ret.append(node.loc_name)
 
         elif loc_type == 'intersection':
             for node in self.R.nodes:
-                if node.loc_type == LocationType.INTSCT:
+                if node.loc_type == FASTLocationType.INTSCT:
                     ret.append(node.loc_name)
 
         return ret
@@ -467,7 +479,7 @@ class TransitionGraph:
         return duplicated_locs
 
     def __get_intersection_list(self):
-        int_list = [loc for loc in self.R.nodes if loc.loc_type == LocationType.INTSCT]
+        int_list = [loc for loc in self.R.nodes if loc.loc_type == FASTLocationType.INTSCT]
         return int_list
 
     def __get_load_list(self, loc_type):
@@ -502,8 +514,8 @@ class TransitionGraph:
 
         self.G = nx.DiGraph()
 
-        load_unload_type_pair = [(LocationType.ORE_LOAD, LocationType.ORE_DUMP),
-                                 (LocationType.WST_LOAD, LocationType.WST_DUMP)]
+        load_unload_type_pair = [(FASTLocationType.ORE_LOAD, FASTLocationType.ORE_DUMP),
+                                 (FASTLocationType.WST_LOAD, FASTLocationType.WST_DUMP)]
 
         for type_pair in load_unload_type_pair:
 
@@ -584,16 +596,16 @@ class TransitionGraph:
 
                         # For intersections. They have two types.
                         # (1) LOADED_{loc.name} and (2) EMPTY
-                        if loc.loc_type == LocationType.INTSCT:
+                        if loc.loc_type == FASTLocationType.INTSCT:
                             if is_loaded:
                                 state = 'LOADED_' + loaded_loc.loc_name
                                 new_loc = TransitionNode(loc.name + '_LOAD_' + loaded_loc.loc_name, loc.pos[0], loc.pos[1],
-                                                         LocationType.INTSCT,
+                                                         FASTLocationType.INTSCT,
                                                          loc.activity_time, loc.name, state,
                                                          is_loaded=True, loaded_loc=loaded_loc)
                             else:
                                 state = 'EMPTY'
-                                new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], LocationType.INTSCT,
+                                new_loc = TransitionNode(loc.name + '_EMPTY', loc.pos[0], loc.pos[1], FASTLocationType.INTSCT,
                                                          loc.activity_time, loc.name, state,
                                                          is_loaded=False, loaded_loc=loaded_loc)
                             transition_cycle.append(new_loc)

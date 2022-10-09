@@ -1,12 +1,13 @@
 import copy
 from typing import Optional
 import random
+random.seed(1)
 import numpy as np
 
-from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel, TransitionType, LocationType
+from transition_graph import RoadNetwork, TransitionGraph, TransitionNode, TransitionLabel, TransitionType, FASTLocationType
 from objective_function import ObjectiveFunction
 from logger import *
-
+import pickle
 
 class SystemState:
     """"""
@@ -69,7 +70,7 @@ class SystemState:
         return ret
 
     def __str__(self):
-        ret = f"t={self.t},\n"
+        ret = f"t={self.sim_time},\n"
         ret += "d=["
         for e in self.d:
             ret += f"{e} "
@@ -137,8 +138,9 @@ class SystemState:
 
         # The simulation time equals the time when the truck arrives.
         new_t = self.td[i]
-        dt = new_t - self.t
-        self.t = new_t
+        # dt = new_t - self.t  # simulation time step
+        dt = new_t - self.sim_time
+        # self.t = new_t  #
         self.sim_time += dt  # [sec]  # FIXME: to organise these lines
 
         # Find the next action
@@ -157,12 +159,15 @@ class SystemState:
         self.u[node_fr] = self.td[i]  # TODO: check if node_fr is correct
         self.r[(node_fr, node_to)] += r_e  # TODO: check if node_fr is correct
 
-        new_o1 = self.o.o(self, self.t)
-        if dt != 0:
+        # if dt != 0:
+        if self.sim_time - self.t > 200:
+            new_o1 = self.o.o(self, self.sim_time)
             self.o2 = self.o2 + self.o.xi ** (1.0 / dt) * (new_o1 - self.o1)
+            self.t = self.sim_time
+            self.o1 = new_o1
         else:
             pass  # TODO:  check if this is expected behavior
-        self.o1 = new_o1
+
 
     def evaluate(self):
         """"""
@@ -208,7 +213,8 @@ class SystemState:
 
     def takeAction(self, action):
         """"""
-        new_state = copy.deepcopy(self)
+        # new_state = copy.deepcopy(self)
+        new_state = pickle.loads(pickle.dumps(self))
 
         i = action.idx
         node_fr = action.node_fr
@@ -220,8 +226,9 @@ class SystemState:
 
         # The simulation time equals the time when the truck arrives.
         new_t = new_state.td[i]
-        dt = new_t - new_state.t
-        new_state.t = new_t
+        # dt = new_t - new_state.t
+        dt = new_t - new_state.sim_time
+        # new_state.t = new_t
         new_state.sim_time += dt  # [sec]
 
         new_state.d[i] = node_to
@@ -230,12 +237,17 @@ class SystemState:
         new_state.u[node_fr] = new_state.td[i]
         new_state.r[(node_fr, node_to)] += r_e
 
-        new_o1 = new_state.o.o(new_state, new_state.t)
-        if dt != 0:
+
+        # if dt != 0:
+        odt = new_state.sim_time - new_state.t
+        if odt > 200:
+            new_o1 = new_state.o.o(new_state, new_state.t)
             new_state.o2 = new_state.o2 + new_state.o.xi ** (1.0 / dt) * (new_o1 - new_state.o1)
+            new_state.t = new_state.sim_time
+            new_state.o1 = new_o1
         else:
             pass  # TODO:  check if this is expected behavior
-        new_state.o1 = new_o1
+
 
         return new_state
 
@@ -276,8 +288,8 @@ def main(mine_type='1', t_end=1200.0):
     road_network = RoadNetwork(mine_type)
     transition_graph = TransitionGraph(road_network.R)
     transition_graph.show_labels_table()
-    transition_graph.draw()
-    transition_graph.show()
+    # transition_graph.draw()
+    # transition_graph.show()
 
     n = 3
     t_s = 0  # [sec]

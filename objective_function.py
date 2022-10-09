@@ -2,7 +2,7 @@ from typing import Optional
 
 import numpy as np
 
-from transition_graph import TransitionGraph, TransitionNode, TransitionLabel, TransitionType, LocationType
+from transition_graph import TransitionGraph, TransitionNode, TransitionLabel, TransitionType, FASTLocationType
 from logger import *
 
 
@@ -107,6 +107,7 @@ class ObjectiveFunction:
     def generate_dummy_plan(self):
         dummy_plan: dict[(TransitionNode, TransitionNode)] = dict()
         dummy_value = 2000. / 60.0 / 300.0 / 100.0  # [ton/h] * [h] / [ton]
+        dummy_value = 2000. / 3600.0 / 300.0  # [ton/h] * [h] / [ton]
 
         activity_node_list = []
         for node in self.trans_graph.G.nodes:
@@ -119,13 +120,13 @@ class ObjectiveFunction:
                     node_fr: TransitionNode
                     node_to: TransitionNode
 
-                    if self.is_activity_node(node_fr) and node_fr.loc_type == LocationType.ORE_LOAD:
-                        if self.is_activity_node(node_to) and node_to.loc_type == LocationType.ORE_DUMP:
+                    if self.is_activity_node(node_fr) and node_fr.loc_type.value[0] == 1:
+                        if self.is_activity_node(node_to) and node_to.loc_type.value[0] == 2:
                             edge = (node_fr, node_to)
                             dummy_plan[edge] = dummy_value
 
-                    if self.is_activity_node(node_fr) and node_fr.loc_type == LocationType.WST_LOAD:
-                        if self.is_activity_node(node_to) and node_to.loc_type == LocationType.WST_DUMP:
+                    if self.is_activity_node(node_fr) and node_fr.loc_type.value[0] == 3:
+                        if self.is_activity_node(node_to) and node_to.loc_type.value[0] == 4:
                             edge = (node_fr, node_to)
                             dummy_plan[edge] = dummy_value
 
@@ -138,13 +139,18 @@ class ObjectiveFunction:
         - a node which is dumping location and not is_loaded
         as an activity node
         """
-        if node.loc_type == LocationType.ORE_LOAD or node.loc_type == LocationType.WST_LOAD:
+        if isinstance(node.loc_type.value, int):
+            return False
+
+        # if node.loc_type == FASTLocationType.ORE_LOAD or node.loc_type == FASTLocationType.WST_LOAD:
+        if node.loc_type.value[0] == 1 or node.loc_type.value[0] == 3:
             if node.is_loaded and not node.star:
                 return True
             else:
                 return False
 
-        elif node.loc_type == LocationType.ORE_DUMP or node.loc_type == LocationType.WST_DUMP:
+        # elif node.loc_type == FASTLocationType.ORE_DUMP or node.loc_type == FASTLocationType.WST_DUMP:
+        elif node.loc_type.value[0] == 2 or node.loc_type.value[0] == 4:
             if not node.is_loaded and not node.star:
                 return True
             else:

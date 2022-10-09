@@ -6,7 +6,7 @@ import random
 
 
 def randomPolicy(state):
-    time_horizon = 5.0 * 60.0  # [sec]  FIXME: don't hard-code it here.
+    time_horizon = 10.0 * 60.0  # [sec]  FIXME: don't hard-code it here.
     sim_time_start = state.sim_time
     while not state.isTerminal():
         try:
@@ -110,7 +110,6 @@ class mcts():
             self.min_reward = reward
 
         self.c = max(1, self.max_reward-self.min_reward) * math.sqrt(2)
-        print(self.c)
 
     def selectNode(self, node):
         while not node.isTerminal:
