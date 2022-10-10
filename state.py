@@ -14,31 +14,32 @@ class SystemState:
 
     def __init__(self, transition_graph, num_vehicles, t_s, t_e, initial_nodes=None):
         """Constructor for SystemState"""
+        self.num_vehicles = num_vehicles
+        self.trans_graph: TransitionGraph = transition_graph
 
         # simulation time
         self.t_s = t_s  # [sec]
         self.t_e = t_e  # [sec]
         self.sim_time = t_s  # [sec]
 
-        # objects
-        self.trans_graph: TransitionGraph = transition_graph
-        self.o = ObjectiveFunction(transition_graph)
-
-        # prams
         # TODO: is it determined by material types?
         self._r_for_loading = 1.0
         self._r_for_dumping = 1.0
 
-        # state
-        self.d: list[Optional[TransitionNode]] = [None] * num_vehicles  # vertex id that the i-th truck is heading to
-        self.td: list[float] = [0] * num_vehicles  # estimated time of arrival at the next node
-        self.u: dict[TransitionNode] = self.__init_u_ke()  # FIXME: is it good to have it as a dict?
-        self.r: dict[(TransitionNode, TransitionNode)] = self.__init_r()  # total reward the i-th node has got
-        self.o1: float = 0  # objective value
-        self.o2: float = 0  # objective value
-        self.t: float = t_s  # the last point in time when the objective function was updated
-
+        # objective
         if initial_nodes is not None:
+            self.o = ObjectiveFunction(transition_graph)
+
+            # state
+            self.d: list[Optional[TransitionNode]] = [
+                                                         None] * num_vehicles  # vertex id that the i-th truck is heading to
+            self.td: list[float] = [0] * num_vehicles  # estimated time of arrival at the next node
+            self.u: dict[TransitionNode] = self.__init_u_ke()  # FIXME: is it good to have it as a dict?
+            self.r: dict[(TransitionNode, TransitionNode)] = self.__init_r()  # total reward the i-th node has got
+            self.o1: float = 0  # objective value
+            self.o2: float = 0  # objective value
+            self.t: float = t_s  # the last point in time when the objective function was updated
+
             if len(initial_nodes) != len(self.d):
                 logger.error('length mismatch')
                 raise ValueError
@@ -46,6 +47,41 @@ class SystemState:
             for i, node in enumerate(initial_nodes):
                 self.d[i] = node
                 self.td[i] = t_s
+
+        else:
+            # objective
+            self.o = None
+
+            # state
+            self.d = None
+            self.td = None
+            self.u = None
+            self.r = None
+            self.o1 = None
+            self.o2 = None
+            self.t = None
+
+
+    def clone(self):
+
+        # transition_graph = pickle.loads(pickle.dumps(self.trans_graph))
+        new_s = SystemState(self.trans_graph, self.num_vehicles,self.t_s, self.t_e, initial_nodes=None)
+
+        new_s.t_s = self.t_s
+        new_s.t_e = self.t_e
+        new_s.sim_time = self.sim_time
+
+        new_s.o = self.o  # just copy
+        new_s.d = self.d.copy()
+        new_s.td = self.td.copy()
+        new_s.u = self.u.copy()
+        new_s.r = self.r.copy()
+        new_s.o1 = self.o1
+        new_s.o2 = self.o2
+        new_s.t = self.t
+
+        return new_s
+
 
     def __init_u_ke(self):
         ret = dict()
@@ -160,7 +196,7 @@ class SystemState:
         self.r[(node_fr, node_to)] += r_e  # TODO: check if node_fr is correct
 
         # if dt != 0:
-        if self.sim_time - self.t > 200:
+        if self.sim_time - self.t > 300:
             new_o1 = self.o.o(self, self.sim_time)
             self.o2 = self.o2 + self.o.xi ** (1.0 / dt) * (new_o1 - self.o1)
             self.t = self.sim_time
@@ -202,10 +238,12 @@ class SystemState:
         truck_idx = np.argmin(self.td)
 
         # Find possible actions
-        neighbors: list[TransitionNode] = self.trans_graph.get_neighbors(self.d[truck_idx])
+        # neighbors: list[TransitionNode] = self.trans_graph.get_neighbors(self.d[truck_idx])
+        neighbors: list[TransitionNode] = self.trans_graph.G.neighbors(self.d[truck_idx])  # speedup
+        node_fr: TransitionNode = self.d[truck_idx]
         for node_to in neighbors:
-            node_fr: TransitionNode = self.d[truck_idx]
-            trans_e: TransitionLabel = self.trans_graph.G.edges[(node_fr, node_to)]['transition']
+            # trans_e: TransitionLabel = self.trans_graph.G.edges[(node_fr, node_to)]['transition']
+            trans_e: TransitionLabel = self.trans_graph.trans_e_dict[(node_fr, node_to)]
             action = Action(truck_idx, node_fr, node_to, trans_e)
             possible_actions.append(action)
 
@@ -214,9 +252,12 @@ class SystemState:
     def takeAction(self, action):
         """"""
         # new_state = copy.deepcopy(self)
-        new_state = pickle.loads(pickle.dumps(self))
+        new_state = self.clone()
+        # new_state = pickle.loads(pickle.dumps(self))
 
         i = action.idx
+        # i = np.argmin(new_state.td)  # the same
+
         node_fr = action.node_fr
         node_to = action.node_to
         trans_e = action.trans_e
@@ -226,17 +267,13 @@ class SystemState:
 
         # The simulation time equals the time when the truck arrives.
         new_t = new_state.td[i]
-        # dt = new_t - new_state.t
         dt = new_t - new_state.sim_time
-        # new_state.t = new_t
         new_state.sim_time += dt  # [sec]
 
         new_state.d[i] = node_to
-
         new_state.td[i] = max(new_state.td[i] + l_e, new_state.u[node_fr] + f_e)
         new_state.u[node_fr] = new_state.td[i]
         new_state.r[(node_fr, node_to)] += r_e
-
 
         # if dt != 0:
         odt = new_state.sim_time - new_state.t
@@ -245,8 +282,8 @@ class SystemState:
             new_state.o2 = new_state.o2 + new_state.o.xi ** (1.0 / dt) * (new_o1 - new_state.o1)
             new_state.t = new_state.sim_time
             new_state.o1 = new_o1
-        else:
-            pass  # TODO:  check if this is expected behavior
+        # else:
+        #     pass  # TODO:  check if this is expected behavior
 
 
         return new_state
@@ -306,6 +343,6 @@ def main(mine_type='1', t_end=1200.0):
 
 if __name__ == '__main__':
     mine_type = '6'
-    t_end = 100.0 * 60.0
+    t_end = 20.0 * 60.0
     main(mine_type=mine_type, t_end=t_end)
     logger.info('EOP')

@@ -3,18 +3,26 @@ from __future__ import division
 import time
 import math
 import random
-
+random.seed(1)
 
 def randomPolicy(state):
     time_horizon = 10.0 * 60.0  # [sec]  FIXME: don't hard-code it here.
     sim_time_start = state.sim_time
     while not state.isTerminal():
-        try:
-            action = random.choice(state.getPossibleActions())
-        except IndexError:
-            raise Exception("Non-terminal state has no possible actions: " + str(state))
+        actions = state.getPossibleActions()
+        action = random.choice(actions)
+        #
+        # try:
+        #     actions = state.getPossibleActions()
+        #     if len(actions)==1:
+        #         action = actions[0]
+        #     else:
+        #         action = random.choice(actions)
+        # except IndexError:
+        #     raise Exception("Non-terminal state has no possible actions: " + str(state))
 
         state = state.takeAction(action)
+
         elapsed_sim_time = state.sim_time - sim_time_start
         if elapsed_sim_time > time_horizon:
             break

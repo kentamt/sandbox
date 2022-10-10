@@ -265,6 +265,8 @@ class TransitionGraph:
         self.G = None
         self.distance_dict: dict = dict()
 
+        self.trans_e_dict = dict()
+
         # build network
         self.G = self.__build()
         # add transition labels
@@ -274,7 +276,8 @@ class TransitionGraph:
         table = []
         for edge in self.G.edges:
             node_fr, node_to = edge
-            l = self.G.edges[edge]['transition']
+            # l = self.G.edges[edge]['transition']
+            l = self.trans_e_dict[edge]
             row = [f'{node_fr.loc_name} ==> {node_to.loc_name}', l.l, l.f, l.k, l.a, l.r]
             table.append(row)
         logger.info('\n' + tabulate(table, headers=["edge", "l_e", 'f_e', 'k_e', 'a_e', 'r_e'], tablefmt="github"))
@@ -710,6 +713,7 @@ class TransitionGraph:
                     label.a = (node_from.loaded_loc.loc_name, node_to.loc_name)
 
             self.G.edges[edge]["transition"] = label
+            self.trans_e_dict[edge] = label
 
 
 def main():

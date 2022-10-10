@@ -20,6 +20,18 @@ class ObjectiveFunction:
         # params
         self.xi = 0.8
 
+        # load-unload pair
+        self.load_unload_pair = list()
+        for edge in self.trans_graph.G.edges:
+            n_f = edge[0]
+            n_t = edge[1]
+            trans_e: TransitionLabel = self.trans_graph.G.edges[(n_f, n_t)]['transition']
+            if trans_e.a is not None:
+                # load_unload_reward_buckets[trans_e.a] = state.r[(n_f, n_t)]
+                self.load_unload_pair.append((n_f, n_t, trans_e.a))
+
+
+
     def o(self, state, t: float):
         """
         """
@@ -57,12 +69,8 @@ class ObjectiveFunction:
 
         # update load-unload pair's reward buckets
         load_unload_reward_buckets: dict = {}
-        for edge in self.trans_graph.G.edges:
-            n_f = edge[0]
-            n_t = edge[1]
-            trans_e: TransitionLabel = self.trans_graph.G.edges[(n_f, n_t)]['transition']
-            if trans_e.a is not None:
-                load_unload_reward_buckets[trans_e.a] = state.r[(n_f, n_t)]
+        for n_f, n_t, trans_e_a in self.load_unload_pair:
+            load_unload_reward_buckets[trans_e_a] = state.r[(n_f, n_t)]
 
         # f((a,.),t) = sum_{a2∈A} {f(a, a2, t)
         if a2 is None:
